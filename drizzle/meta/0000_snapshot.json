@@ -1,0 +1,760 @@
+{
+  "id": "0826fd5a-d799-4c47-827c-33655abe1fb4",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.league_settings": {
+      "name": "league_settings",
+      "schema": "",
+      "columns": {
+        "season": {
+          "name": "season",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "stat_categories": {
+          "name": "stat_categories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "min_innings_pitched": {
+          "name": "min_innings_pitched",
+          "type": "numeric(5, 2)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "playoff_start_week": {
+          "name": "playoff_start_week",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "league_settings_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.matchups": {
+      "name": "matchups",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "round": {
+          "name": "round",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "week": {
+          "name": "week",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "high_team_id": {
+          "name": "high_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "low_team_id": {
+          "name": "low_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "matchup_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "computed_tally": {
+          "name": "computed_tally",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "computed_winner_team_id": {
+          "name": "computed_winner_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "decided_by": {
+          "name": "decided_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "locked_at": {
+          "name": "locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "settled_at": {
+          "name": "settled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "override_winner_team_id": {
+          "name": "override_winner_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "override_note": {
+          "name": "override_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "overridden_at": {
+          "name": "overridden_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "matchups_high_team_id_teams_id_fk": {
+          "name": "matchups_high_team_id_teams_id_fk",
+          "tableFrom": "matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "high_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "matchups_low_team_id_teams_id_fk": {
+          "name": "matchups_low_team_id_teams_id_fk",
+          "tableFrom": "matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "low_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "matchups_computed_winner_team_id_teams_id_fk": {
+          "name": "matchups_computed_winner_team_id_teams_id_fk",
+          "tableFrom": "matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "computed_winner_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "matchups_override_winner_team_id_teams_id_fk": {
+          "name": "matchups_override_winner_team_id_teams_id_fk",
+          "tableFrom": "matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "override_winner_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.oauth_tokens": {
+      "name": "oauth_tokens",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "access_token": {
+          "name": "access_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refresh_token": {
+          "name": "refresh_token",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "oauth_tokens_single_row": {
+          "name": "oauth_tokens_single_row",
+          "value": "\"oauth_tokens\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.regular_season_matchups": {
+      "name": "regular_season_matchups",
+      "schema": "",
+      "columns": {
+        "week": {
+          "name": "week",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_a_id": {
+          "name": "team_a_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "team_b_id": {
+          "name": "team_b_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "winner_team_id": {
+          "name": "winner_team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_a_category_wins": {
+          "name": "team_a_category_wins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "team_b_category_wins": {
+          "name": "team_b_category_wins",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "tied_categories": {
+          "name": "tied_categories",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source": {
+          "name": "source",
+          "type": "regular_season_matchup_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "raw": {
+          "name": "raw",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "regular_season_matchups_team_a_id_teams_id_fk": {
+          "name": "regular_season_matchups_team_a_id_teams_id_fk",
+          "tableFrom": "regular_season_matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_a_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "regular_season_matchups_team_b_id_teams_id_fk": {
+          "name": "regular_season_matchups_team_b_id_teams_id_fk",
+          "tableFrom": "regular_season_matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_b_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "regular_season_matchups_winner_team_id_teams_id_fk": {
+          "name": "regular_season_matchups_winner_team_id_teams_id_fk",
+          "tableFrom": "regular_season_matchups",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "winner_team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "regular_season_matchups_week_team_pair_unique": {
+          "name": "regular_season_matchups_week_team_pair_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "week",
+            "team_a_id",
+            "team_b_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "regular_season_matchups_ordered_pair": {
+          "name": "regular_season_matchups_ordered_pair",
+          "value": "\"regular_season_matchups\".\"team_a_id\" < \"regular_season_matchups\".\"team_b_id\""
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.stat_lines": {
+      "name": "stat_lines",
+      "schema": "",
+      "columns": {
+        "team_id": {
+          "name": "team_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "week": {
+          "name": "week",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "stats": {
+          "name": "stats",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "stat_line_source",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sync_run_id": {
+          "name": "sync_run_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "synced_at": {
+          "name": "synced_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "stat_lines_team_id_teams_id_fk": {
+          "name": "stat_lines_team_id_teams_id_fk",
+          "tableFrom": "stat_lines",
+          "tableTo": "teams",
+          "columnsFrom": [
+            "team_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "stat_lines_sync_run_id_sync_runs_id_fk": {
+          "name": "stat_lines_sync_run_id_sync_runs_id_fk",
+          "tableFrom": "stat_lines",
+          "tableTo": "sync_runs",
+          "columnsFrom": [
+            "sync_run_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "stat_lines_team_week_pk": {
+          "name": "stat_lines_team_week_pk",
+          "columns": [
+            "team_id",
+            "week"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sync_runs": {
+      "name": "sync_runs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "trigger": {
+          "name": "trigger",
+          "type": "sync_run_trigger",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "sync_run_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "detail": {
+          "name": "detail",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.sync_state": {
+      "name": "sync_state",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "default": 1
+        },
+        "last_attempt": {
+          "name": "last_attempt",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "last_success": {
+          "name": "last_success",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "lock_expires_at": {
+          "name": "lock_expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_retry_at": {
+          "name": "next_retry_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seed_lock_status": {
+          "name": "seed_lock_status",
+          "type": "seed_lock_status",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'none'"
+        },
+        "seeds_locked_at": {
+          "name": "seeds_locked_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seeds_settled_at": {
+          "name": "seeds_settled_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "seeds_snapshot": {
+          "name": "seeds_snapshot",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "sync_state_single_row": {
+          "name": "sync_state_single_row",
+          "value": "\"sync_state\".\"id\" = 1"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.teams": {
+      "name": "teams",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "yahoo_team_key": {
+          "name": "yahoo_team_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "current_rank": {
+          "name": "current_rank",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "final_seed": {
+          "name": "final_seed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "regular_season_outcome_totals": {
+          "name": "regular_season_outcome_totals",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'::jsonb"
+        }
+      },
+      "indexes": {
+        "teams_yahoo_team_key_unique": {
+          "name": "teams_yahoo_team_key_unique",
+          "columns": [
+            {
+              "expression": "yahoo_team_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {
+    "public.league_settings_source": {
+      "name": "league_settings_source",
+      "schema": "public",
+      "values": [
+        "yahoo",
+        "seed"
+      ]
+    },
+    "public.matchup_status": {
+      "name": "matchup_status",
+      "schema": "public",
+      "values": [
+        "pending",
+        "live",
+        "provisional",
+        "under_review",
+        "final"
+      ]
+    },
+    "public.regular_season_matchup_source": {
+      "name": "regular_season_matchup_source",
+      "schema": "public",
+      "values": [
+        "yahoo",
+        "import"
+      ]
+    },
+    "public.seed_lock_status": {
+      "name": "seed_lock_status",
+      "schema": "public",
+      "values": [
+        "none",
+        "provisional",
+        "under_review",
+        "settled"
+      ]
+    },
+    "public.stat_line_source": {
+      "name": "stat_line_source",
+      "schema": "public",
+      "values": [
+        "yahoo",
+        "manual",
+        "import"
+      ]
+    },
+    "public.sync_run_status": {
+      "name": "sync_run_status",
+      "schema": "public",
+      "values": [
+        "running",
+        "success",
+        "error"
+      ]
+    },
+    "public.sync_run_trigger": {
+      "name": "sync_run_trigger",
+      "schema": "public",
+      "values": [
+        "visit",
+        "cron",
+        "admin",
+        "backfill"
+      ]
+    }
+  },
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

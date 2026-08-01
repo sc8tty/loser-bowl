@@ -1,0 +1,134 @@
+{
+  "_fixture": "Issue 1A placeholder standings for local tracer-bullet seeding only. These are not real league records.",
+  "season": 2026,
+  "teams": [
+    {
+      "id": "moonshot-accountants",
+      "name": "Moonshot Accountants",
+      "current_rank": 1,
+      "wins": 138,
+      "losses": 82,
+      "ties": 10
+    },
+    {
+      "id": "walkoff-book-club",
+      "name": "Walkoff Book Club",
+      "current_rank": 2,
+      "wins": 132,
+      "losses": 88,
+      "ties": 10
+    },
+    {
+      "id": "warning-track-heroes",
+      "name": "Warning Track Heroes",
+      "current_rank": 3,
+      "wins": 127,
+      "losses": 93,
+      "ties": 10
+    },
+    {
+      "id": "dugout-philosophers",
+      "name": "Dugout Philosophers",
+      "current_rank": 4,
+      "wins": 121,
+      "losses": 99,
+      "ties": 10
+    },
+    {
+      "id": "bat-flip-bureau",
+      "name": "Bat Flip Bureau",
+      "current_rank": 5,
+      "wins": 116,
+      "losses": 104,
+      "ties": 10
+    },
+    {
+      "id": "high-socks-union",
+      "name": "High Socks Union",
+      "current_rank": 6,
+      "wins": 111,
+      "losses": 109,
+      "ties": 10
+    },
+    {
+      "id": "popup-practitioners",
+      "name": "Popup Practitioners",
+      "current_rank": 7,
+      "wins": 106,
+      "losses": 114,
+      "ties": 10
+    },
+    {
+      "id": "box-score-poets",
+      "name": "Box Score Poets",
+      "current_rank": 8,
+      "wins": 102,
+      "losses": 118,
+      "ties": 10
+    },
+    {
+      "id": "cellar-strategists",
+      "name": "Cellar Strategists",
+      "current_rank": 9,
+      "wins": 99,
+      "losses": 121,
+      "ties": 10
+    },
+    {
+      "id": "late-inning-laundry",
+      "name": "Late Inning Laundry",
+      "current_rank": 10,
+      "wins": 96,
+      "losses": 124,
+      "ties": 10
+    },
+    {
+      "id": "foul-line-analysts",
+      "name": "Foul Line Analysts",
+      "current_rank": 11,
+      "wins": 92,
+      "losses": 128,
+      "ties": 10
+    },
+    {
+      "id": "rain-delay-regulars",
+      "name": "Rain Delay Regulars",
+      "current_rank": 12,
+      "wins": 89,
+      "losses": 131,
+      "ties": 10
+    },
+    {
+      "id": "bullpen-committee",
+      "name": "Bullpen Committee",
+      "current_rank": 13,
+      "wins": 86,
+      "losses": 134,
+      "ties": 10
+    },
+    {
+      "id": "waiver-wire-interns",
+      "name": "Waiver Wire Interns",
+      "current_rank": 14,
+      "wins": 83,
+      "losses": 137,
+      "ties": 10
+    },
+    {
+      "id": "bench-depth-department",
+      "name": "Bench Depth Department",
+      "current_rank": 15,
+      "wins": 80,
+      "losses": 140,
+      "ties": 10
+    },
+    {
+      "id": "last-pick-legends",
+      "name": "Last Pick Legends",
+      "current_rank": 16,
+      "wins": 77,
+      "losses": 143,
+      "ties": 10
+    }
+  ]
+}
