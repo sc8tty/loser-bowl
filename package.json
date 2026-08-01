@@ -11,7 +11,10 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
-    "seed:fixture": "node --experimental-strip-types scripts/seed-fixture.ts"
+    "seed:fixture": "node --experimental-strip-types scripts/seed-fixture.ts",
+    "import:stats": "node --experimental-strip-types scripts/import-stats.ts",
+    "import:standings": "node --experimental-strip-types scripts/import-standings.ts",
+    "import:matchups": "node --experimental-strip-types scripts/import-regular-season-matchups.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.1.0",
