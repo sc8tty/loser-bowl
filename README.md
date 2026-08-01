@@ -31,4 +31,4 @@ client with OAuth2 · visit-triggered background sync with daily cron backstop.
 - [docs/review-log.md](docs/review-log.md) — six rounds of external design review and the
   transferable lessons. Read before "simplifying" anything that looks overwrought.
 
-League data shown on the site comes from Yahoo Fantasy Sports.
+Fantasy data provided by Yahoo Fantasy.

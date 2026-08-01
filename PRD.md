@@ -230,9 +230,11 @@ provisional/review badging — no premature confetti.
   not be sent on the callback; only the admin session cookie is Strict. Overrides
   zod-validated (known matchup ids, note required). Sitewide `X-Robots-Tag: noindex`.
   Dependabot on.
-- **Yahoo attribution:** small footer source line ("League data: Yahoo Fantasy Sports") per
-  the Fantasy API branding requirements — "no money on the site" never meant "no
-  attribution."
+- **Yahoo attribution:** footer must read exactly **"Fantasy data provided by Yahoo
+  Fantasy"** and link back to Yahoo Fantasy, with the official Yahoo Fantasy logo used
+  unmodified (no recolor/rotate/effects) — verbatim requirements from the Fantasy API
+  access agreement (sports.yahoo.com/developer, confirmed 2026-07-31). "No money on the
+  site" never meant "no attribution."
 
 ## Task graph (GitHub Issues on sc8tty/loser-bowl, "Blocked by #N")
 
