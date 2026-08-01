@@ -32,3 +32,13 @@ client with OAuth2 · visit-triggered background sync with daily cron backstop.
   transferable lessons. Read before "simplifying" anything that looks overwrought.
 
 Fantasy data provided by Yahoo Fantasy.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000. Copy `.env.example` to `.env.local` for local config (never
+commit env files).
