@@ -1,0 +1,15 @@
+# deps / build (Next.js scaffold will extend this)
+node_modules/
+.next/
+out/
+coverage/
+
+# env & secrets — never commit
+.env
+.env.*
+!.env.example
+
+# local noise
+.DS_Store
+*.log
+.vercel
