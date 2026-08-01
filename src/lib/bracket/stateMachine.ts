@@ -157,6 +157,14 @@ export function transitionMatchupState(
   now: Date,
 ): StateTransition<MatchupState> {
   if (event.type === "record_provisional_result") {
+    // Only a pending/live matchup may record a result. under_review is FROZEN
+    // (admin confirm/override is the only exit) and final is immutable —
+    // re-recording either would wipe a review or clobber an override
+    // (max-review findings A1/A2).
+    if (currentState.status !== "pending" && currentState.status !== "live") {
+      return { nextState: currentState, sideEffects: [] };
+    }
+
     return {
       nextState: {
         ...currentState,
@@ -281,17 +289,35 @@ export function transitionMatchupState(
     };
   }
 
+  const correctedWinnerTeamId = currentState.review.correctedWinnerTeamId;
+
   return {
     nextState: {
       ...currentState,
       status: "final",
       resultFingerprint: currentState.review.originalResultFingerprint,
       computedWinnerTeamId: currentState.review.originalWinnerTeamId,
-      overrideWinnerTeamId: currentState.review.correctedWinnerTeamId,
+      overrideWinnerTeamId: correctedWinnerTeamId,
       settledAt: now,
       review: null,
     },
     sideEffects: [
+      // The corrected team must replace the original occupant downstream
+      // (max-review finding B). A null corrected winner (corrected to a tie)
+      // emits no advance — the consumer must rerun tiebreakers from the
+      // effective result.
+      ...(correctedWinnerTeamId === null
+        ? []
+        : [
+            {
+              type: "advance_winner",
+              entity: "matchup",
+              winnerTeamId: correctedWinnerTeamId,
+              ...(event.downstreamMatchupId === undefined
+                ? {}
+                : { downstreamMatchupId: event.downstreamMatchupId }),
+            } as const,
+          ]),
       maybeResumeDownstreamBranch(event.downstreamMatchupId),
       { type: "settle_result", entity: "matchup" },
     ],
@@ -304,6 +330,12 @@ export function transitionSeedLockState(
   now: Date,
 ): StateTransition<SeedLockState> {
   if (event.type === "record_provisional_seed_lock") {
+    // A seed lock records once, from "none". Settled seeds are immutable for
+    // the season (max-review finding C); under_review awaits admin resolution.
+    if (currentState.status !== "none") {
+      return { nextState: currentState, sideEffects: [] };
+    }
+
     return {
       nextState: {
         ...currentState,

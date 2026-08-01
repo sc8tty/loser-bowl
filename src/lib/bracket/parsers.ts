@@ -27,21 +27,22 @@ export function parseInningsPitched(
   input: YahooStatInput,
 ): ParsedInningsPitched {
   if (typeof input === "number") {
-    if (!Number.isFinite(input) || input < 0) {
-      throw new Error(`Invalid innings pitched value: ${input}`);
-    }
-
-    const totalOuts = Math.round(input * 3);
-
-    if (Math.abs(totalOuts / 3 - input) > Number.EPSILON * 100) {
-      throw new Error(`Invalid innings pitched value: ${input}`);
+    // Fractional numeric IP is AMBIGUOUS: 100.2 the number reads as decimal
+    // innings while "100.2" the string means 100⅔ in Yahoo thirds notation —
+    // silently accepting both inverted category winners (max-review finding D).
+    // Only whole-number numerics are safe; everything else must arrive as the
+    // Yahoo notation string.
+    if (!Number.isFinite(input) || input < 0 || !Number.isInteger(input)) {
+      throw new Error(
+        `Ambiguous numeric innings pitched value: ${input} — pass Yahoo thirds notation as a string (e.g. "100.2").`,
+      );
     }
 
     return {
-      wholeInnings: Math.floor(totalOuts / 3),
-      outs: (totalOuts % 3) as 0 | 1 | 2,
-      value: totalOuts / 3,
-      hasDecimal: true,
+      wholeInnings: input,
+      outs: 0,
+      value: input,
+      hasDecimal: false,
     };
   }
 

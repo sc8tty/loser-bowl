@@ -60,17 +60,17 @@ function parseMaybeInningsPitched(
     return null;
   }
 
-  if (typeof raw === "number") {
-    return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "number") {
+    const trimmed = raw.trim();
+
+    if (trimmed === "-") {
+      return null;
+    }
   }
 
-  const trimmed = raw.trim();
-
-  if (trimmed === "-") {
-    return null;
-  }
-
-  return parseInningsPitched(trimmed).value;
+  // Numeric input routes through the parser too, so decimal-vs-thirds
+  // ambiguity throws instead of silently misreading (max-review finding D).
+  return parseInningsPitched(raw).value;
 }
 
 /**
@@ -95,8 +95,18 @@ export const defaultInningsMinimumPolicy: InningsMinimumPolicy = ({
 
   const inningsA = parseMaybeInningsPitched(statsA.innings_pitched);
   const inningsB = parseMaybeInningsPitched(statsB.innings_pitched);
-  const teamAMetMinimum = inningsA !== null && inningsA >= minInningsPitched;
-  const teamBMetMinimum = inningsB !== null && inningsB >= minInningsPitched;
+
+  // A MISSING innings_pitched stat is corrupt input, not zero innings — Yahoo
+  // always reports IP. Treating absence as "below minimum" would forfeit
+  // pitching categories on bad data (max-review finding E).
+  if (inningsA === null || inningsB === null) {
+    throw new Error(
+      "Innings-minimum policy requires innings_pitched for both teams; a missing IP stat is a data-integrity error, not a forfeit.",
+    );
+  }
+
+  const teamAMetMinimum = inningsA >= minInningsPitched;
+  const teamBMetMinimum = inningsB >= minInningsPitched;
 
   if (teamAMetMinimum && teamBMetMinimum) {
     return { applies: false };
@@ -182,8 +192,17 @@ export function compareWeek(
   options: {
     minInningsPitched?: number | null;
     inningsMinimumPolicy?: InningsMinimumPolicy;
+    /**
+     * "final" (default): a category value present for one team but missing for
+     * the other is a data-integrity error and throws — silently scoring it as
+     * a tie could decide a matchup on corrupt data (max-review finding H).
+     * "live": mid-week partial data is expected (a team with no IP yet shows
+     * "-" for ERA); missing values render as ties for display purposes only.
+     */
+    mode?: "live" | "final";
   } = {},
 ): WeekComparisonResult {
+  const mode = options.mode ?? "final";
   const tally = {
     teamAWins: 0,
     teamBWins: 0,
@@ -201,6 +220,13 @@ export function compareWeek(
 
     const teamAValue = parseComparableValue(category.slug, statsA[category.slug]);
     const teamBValue = parseComparableValue(category.slug, statsB[category.slug]);
+
+    if (mode === "final" && (teamAValue === null) !== (teamBValue === null)) {
+      throw new Error(
+        `Category "${category.slug}" has a value for one team but not the other — corrupt final-week data (silent tie refused).`,
+      );
+    }
+
     const policyDecision = inningsMinimumPolicy({
       category,
       statsA,

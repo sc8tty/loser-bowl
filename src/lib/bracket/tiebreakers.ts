@@ -38,11 +38,21 @@ function matchupCategoryWins(
   result: TiebreakerMatchupResult,
   side: "A" | "B",
 ): number {
-  if (side === "A") {
-    return result.teamAWins ?? result.categoryWinsA ?? 0;
+  // Missing win counts are corrupt input, not zero — defaulting to 0-0 would
+  // silently route a garbage result into the tiebreaker chain (max-review
+  // finding F).
+  const wins =
+    side === "A"
+      ? (result.teamAWins ?? result.categoryWinsA)
+      : (result.teamBWins ?? result.categoryWinsB);
+
+  if (typeof wins !== "number" || !Number.isFinite(wins) || wins < 0) {
+    throw new Error(
+      `Tiebreaker input is missing category win counts for team ${side}.`,
+    );
   }
 
-  return result.teamBWins ?? result.categoryWinsB ?? 0;
+  return wins;
 }
 
 function rowContainsPair(
@@ -97,6 +107,10 @@ export function applyTiebreakers(
       headToHeadWinsA += 1;
     } else if (row.winnerTeamId === matchupResult.teamBId) {
       headToHeadWinsB += 1;
+    } else if (row.winnerTeamId !== null) {
+      throw new Error(
+        `Regular-season matchup row for this pair names winner "${row.winnerTeamId}", which is neither team — corrupt tiebreaker context.`,
+      );
     }
   }
 
@@ -121,11 +135,15 @@ export function applyTiebreakers(
     context.outcomeTotalsByTeamId[matchupResult.teamBId],
   );
 
-  if (
-    seasonCategoryWinsA !== null &&
-    seasonCategoryWinsB !== null &&
-    seasonCategoryWinsA !== seasonCategoryWinsB
-  ) {
+  // The PRD falls through to seed only when season totals are TIED, never when
+  // they're missing — absent totals are corrupt context (max-review finding F).
+  if (seasonCategoryWinsA === null || seasonCategoryWinsB === null) {
+    throw new Error(
+      "Tiebreaker context is missing season category-win totals; refusing to skip to the seed terminus on incomplete data.",
+    );
+  }
+
+  if (seasonCategoryWinsA !== seasonCategoryWinsB) {
     return {
       winnerTeamId:
         seasonCategoryWinsA > seasonCategoryWinsB

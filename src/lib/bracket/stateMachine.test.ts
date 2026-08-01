@@ -267,6 +267,12 @@ describe("transitionMatchupState", () => {
     });
     expect(result.sideEffects).toEqual([
       {
+        type: "advance_winner",
+        entity: "matchup",
+        winnerTeamId: "team-b",
+        downstreamMatchupId: "sf-1",
+      },
+      {
         type: "resume_downstream_branch",
         entity: "matchup",
         downstreamMatchupId: "sf-1",
@@ -423,5 +429,111 @@ describe("transitionSeedLockState", () => {
       { type: "replace_round_one_pairings", entity: "seed_lock" },
       { type: "settle_result", entity: "seed_lock" },
     ]);
+  });
+});
+
+// Regression tests for the 2026-08-01 max-effort review findings
+// (docs/reviews/issue-5-max-review.md). Each mirrors the reviewer's
+// refute-by-execution evidence.
+import {
+  transitionMatchupState as transitionMatchup,
+  transitionSeedLockState as transitionSeedLock,
+  type MatchupState as ReviewMatchupState,
+  type SeedLockState as ReviewSeedLockState,
+} from "./stateMachine";
+import { describe as describeRegression, expect as expectR, it as itR } from "vitest";
+
+describeRegression("max-review regressions", () => {
+  const NOW = new Date("2026-09-14T12:00:00Z");
+
+  const underReview: ReviewMatchupState = {
+    status: "under_review",
+    resultFingerprint: "orig-fp",
+    computedWinnerTeamId: "team-a",
+    lockedAt: new Date("2026-09-13T21:00:00Z"),
+    review: {
+      originalWinnerTeamId: "team-a",
+      correctedWinnerTeamId: "team-b",
+      originalResultFingerprint: "orig-fp",
+      correctedResultFingerprint: "corr-fp",
+      detectedAt: new Date("2026-09-14T09:00:00Z"),
+    },
+  };
+
+  itR("A1: record_provisional_result on under_review is a frozen no-op", () => {
+    const result = transitionMatchup(
+      underReview,
+      {
+        type: "record_provisional_result",
+        resultFingerprint: "corr-fp",
+        winnerTeamId: "team-b",
+        downstreamMatchupId: "sf1",
+      },
+      NOW,
+    );
+
+    expectR(result.nextState).toEqual(underReview);
+    expectR(result.sideEffects).toEqual([]);
+  });
+
+  itR("A2: record_provisional_result on a settled final is immutable", () => {
+    const settled: ReviewMatchupState = {
+      status: "final",
+      resultFingerprint: "orig-fp",
+      computedWinnerTeamId: "team-a",
+      overrideWinnerTeamId: "team-b",
+      lockedAt: new Date("2026-09-13T21:00:00Z"),
+      settledAt: new Date("2026-09-14T22:00:00Z"),
+      review: null,
+    };
+
+    const result = transitionMatchup(
+      settled,
+      {
+        type: "record_provisional_result",
+        resultFingerprint: "new-fp",
+        winnerTeamId: "team-a",
+      },
+      NOW,
+    );
+
+    expectR(result.nextState).toEqual(settled);
+    expectR(result.sideEffects).toEqual([]);
+  });
+
+  itR("B: admin_override_corrected advances the corrected team downstream", () => {
+    const result = transitionMatchup(
+      underReview,
+      { type: "admin_override_corrected", downstreamMatchupId: "sf1" },
+      NOW,
+    );
+
+    expectR(result.nextState.status).toBe("final");
+    expectR(result.nextState.overrideWinnerTeamId).toBe("team-b");
+    expectR(result.sideEffects).toContainEqual({
+      type: "advance_winner",
+      entity: "matchup",
+      winnerTeamId: "team-b",
+      downstreamMatchupId: "sf1",
+    });
+  });
+
+  itR("C: a settled seed lock refuses to re-open on a new fingerprint", () => {
+    const settled: ReviewSeedLockState = {
+      status: "settled",
+      seedFingerprint: "seeds-v1",
+      seedsLockedAt: new Date("2026-09-06T21:00:00Z"),
+      seedsSettledAt: new Date("2026-09-07T22:00:00Z"),
+      review: null,
+    };
+
+    const result = transitionSeedLock(
+      settled,
+      { type: "record_provisional_seed_lock", seedFingerprint: "seeds-v2" },
+      NOW,
+    );
+
+    expectR(result.nextState).toEqual(settled);
+    expectR(result.sideEffects).toEqual([]);
   });
 });
