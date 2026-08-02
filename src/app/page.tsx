@@ -1,78 +1,34 @@
-import { asc } from "drizzle-orm";
-
 import { LEAGUE_CONFIG } from "@/config/league";
 import { ProjectedPairings } from "@/components/projected-pairings";
-import { StandingsTable, type StandingsTeam } from "@/components/standings-table";
-import { getDb, MissingDatabaseUrlError } from "@/db";
-import { teams as teamsTable } from "@/db/schema";
+import { StandingsTable } from "@/components/standings-table";
 import { getProjectedRoundOnePairings } from "@/lib/bracket";
+import { getLeagueData } from "@/lib/sync/trigger";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 10;
+// after()-scheduled syncs inherit this page's duration budget (PRD).
+export const maxDuration = 60;
 
-type RaceData =
-  | {
-      status: "awaiting";
-      teams: [];
-    }
-  | {
-      status: "ready";
-      teams: StandingsTeam[];
-    };
-
-async function getRaceData(): Promise<RaceData> {
-  try {
-    const db = getDb();
-    const rows = await db
-      .select({
-        id: teamsTable.id,
-        name: teamsTable.name,
-        currentRank: teamsTable.currentRank,
-        outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
-      })
-      .from(teamsTable)
-      .orderBy(asc(teamsTable.currentRank));
-
-    if (rows.length === 0) {
-      return { status: "awaiting", teams: [] };
-    }
-
-    const teams = rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      currentRank: row.currentRank,
-      wins: row.outcomeTotals.category_wins ?? 0,
-      losses: row.outcomeTotals.category_losses ?? 0,
-      ties: row.outcomeTotals.category_ties ?? 0,
-    }));
-
-    return { status: "ready", teams };
-  } catch (error) {
-    if (
-      error instanceof MissingDatabaseUrlError ||
-      isTeamsTableUnavailable(error)
-    ) {
-      return { status: "awaiting", teams: [] };
-    }
-
-    throw error;
-  }
-}
-
-function isTeamsTableUnavailable(error: unknown) {
-  const code =
-    typeof error === "object" && error !== null && "code" in error
-      ? (error as { code?: unknown }).code
-      : undefined;
-
-  if (code === "42P01") {
-    console.warn(
-      "teams relation missing (42P01) — rendering awaiting state. Has the migration been applied?",
-    );
-    return true;
+function formatUpdatedAgo(lastSuccessAt: Date | null, now: Date): string {
+  if (lastSuccessAt === null) {
+    return "—";
   }
 
-  return false;
+  const minutes = Math.max(
+    0,
+    Math.round((now.getTime() - lastSuccessAt.getTime()) / 60_000),
+  );
+
+  if (minutes < 1) {
+    return "just now";
+  }
+
+  if (minutes < 60) {
+    return `${minutes} min ago`;
+  }
+
+  const hours = Math.round(minutes / 60);
+
+  return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
 }
 
 function formatConfigDate(date: string) {
@@ -87,7 +43,8 @@ function formatConfigDate(date: string) {
 }
 
 export default async function Home() {
-  const raceData = await getRaceData();
+  const raceData = await getLeagueData();
+  const updatedAgo = formatUpdatedAgo(raceData.lastSuccessAt, new Date());
   const pairings =
     raceData.status === "ready"
       ? getProjectedRoundOnePairings(raceData.teams)
@@ -114,7 +71,7 @@ export default async function Home() {
               />
             </div>
           </div>
-          <div className="grid gap-3 border-t border-stone-700 pt-4 text-sm text-stone-200 sm:grid-cols-2">
+          <div className="grid gap-3 border-t border-stone-700 pt-4 text-sm text-stone-200 sm:grid-cols-3">
             <div>
               <span className="font-semibold text-white">Drop zone</span>{" "}
               seeds 9-16
@@ -122,6 +79,10 @@ export default async function Home() {
             <div>
               <span className="font-semibold text-white">Bowl weeks</span>{" "}
               {LEAGUE_CONFIG.rounds.map((round) => round.week).join(", ")}
+            </div>
+            <div>
+              <span className="font-semibold text-white">Updated</span>{" "}
+              {updatedAgo}
             </div>
           </div>
         </div>
