@@ -1,6 +1,6 @@
 import "server-only";
 
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, inArray, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { syncRuns, syncState } from "@/db/schema";
@@ -32,6 +32,7 @@ export async function claimSyncLock(now: Date): Promise<boolean> {
 
 export async function releaseSyncLock(outcome: {
   success: boolean;
+  wroteData: boolean;
   nextRetryAt: Date | null;
   now: Date;
 }): Promise<void> {
@@ -42,7 +43,12 @@ export async function releaseSyncLock(outcome: {
     .set({
       lockExpiresAt: null,
       nextRetryAt: outcome.nextRetryAt,
-      ...(outcome.success ? { lastSuccess: outcome.now } : {}),
+      // last_success advances only when the source actually wrote data —
+      // a successful no-op must not tell the public page "Updated just now"
+      // (cold-review P2-7).
+      ...(outcome.success && outcome.wroteData
+        ? { lastSuccess: outcome.now }
+        : {}),
     })
     .where(eq(syncState.id, 1));
 }
@@ -68,12 +74,17 @@ export async function recordSyncRun(run: {
   });
 }
 
-/** Consecutive trailing error runs — drives the exponential backoff. */
+/**
+ * Consecutive trailing error runs — drives the exponential backoff. Only real
+ * sync triggers count: import/backfill scripts log to the same table, and an
+ * iterated broken CSV must not inflate the Yahoo backoff (cold-review P2-2).
+ */
 export async function countConsecutiveFailures(): Promise<number> {
   const db = getDb();
   const recent = await db
     .select({ status: syncRuns.status })
     .from(syncRuns)
+    .where(inArray(syncRuns.trigger, ["visit", "cron", "admin"]))
     .orderBy(desc(syncRuns.id))
     .limit(16);
 
@@ -92,9 +103,14 @@ export async function countConsecutiveFailures(): Promise<number> {
 /**
  * The no-op source that ships with the shell. Issue 4B replaces this with the
  * Yahoo sync pipeline; manual mode never needs it (importers write directly).
+ * wroteData: false — a no-op must never advance last_success.
  */
 export async function noopSource(): Promise<Record<string, unknown>> {
-  return { source: "noop", note: "sync shell — real source lands with Issue 4B" };
+  return {
+    source: "noop",
+    note: "sync shell — real source lands with Issue 4B",
+    wroteData: false,
+  };
 }
 
 export function dbSyncDeps(overrides: Partial<SyncDeps> = {}): SyncDeps {

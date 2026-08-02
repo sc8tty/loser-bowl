@@ -104,6 +104,13 @@ export function parseCsv(text: string): Record<string, string>[] {
   const [headerRow, ...dataRows] = nonEmpty;
   const headers = headerRow.map((header) => header.trim());
 
+  // A trailing delimiter on the header row would otherwise become an empty
+  // column name and surface as a confusing field-count error on every data
+  // row (cold-review P3-8).
+  if (headers.some((header) => header === "")) {
+    throw new Error("CSV header row contains an empty column name (trailing comma?).");
+  }
+
   return dataRows.map((cells, index) => {
     if (cells.length !== headers.length) {
       throw new Error(
@@ -170,6 +177,16 @@ export async function logSyncRun(
     error?: string;
   },
 ): Promise<void> {
+  // --dry-run must not touch the database at all — a validation loop on a
+  // broken CSV was writing an error row per attempt (cold-review P3-7, the
+  // feeder for the backoff-poisoning P2-2).
+  if (options.dryRun) {
+    console.log(
+      `[dry-run] not logged to sync_runs: ${options.script} ${options.status}${options.error ? ` (${options.error})` : ""}`,
+    );
+    return;
+  }
+
   const finishedAt = new Date();
 
   await db.insert(schema.syncRuns).values({
@@ -223,6 +240,13 @@ export function assertCompleteRanks(
 ): void {
   if (entries.length !== 16) {
     throw new Error(`Expected 16 teams, received ${entries.length}.`);
+  }
+
+  // Duplicate team ids with complete ranks would double-update one team and
+  // leave another's stale rank colliding downstream (cold-review P2-3).
+  const teamIds = new Set(entries.map((entry) => entry.teamId));
+  if (teamIds.size !== 16) {
+    throw new Error("Standings must contain 16 UNIQUE team ids (duplicate found).");
   }
 
   const ranks = new Set(entries.map((entry) => entry.rank));

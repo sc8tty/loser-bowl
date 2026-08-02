@@ -295,7 +295,9 @@ export function transitionMatchupState(
     nextState: {
       ...currentState,
       status: "final",
-      resultFingerprint: currentState.review.originalResultFingerprint,
+      // The admin accepted the CORRECTED stats — settle with their
+      // fingerprint, not the superseded original's (cold-review P3-3).
+      resultFingerprint: currentState.review.correctedResultFingerprint,
       computedWinnerTeamId: currentState.review.originalWinnerTeamId,
       overrideWinnerTeamId: correctedWinnerTeamId,
       settledAt: now,

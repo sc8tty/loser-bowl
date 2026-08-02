@@ -39,9 +39,16 @@ function inningsPitchedOrThrow(value: string): ParsedInningsPitched {
   }
 }
 
+/**
+ * Zero denominators emit Yahoo's "-" placeholder, NOT a fabricated 0.000/0.00 —
+ * a fabricated ratio hands best-possible ERA/WHIP (or worst-possible AVG) to a
+ * team that did nothing, in exactly the abandoned-lineup scenario manual mode
+ * exists for (cold-review P2-1). "-" parses to null and the final-mode
+ * comparator surfaces it loudly for the commissioner.
+ */
 function ratio(numerator: number, denominator: number, digits: number): string {
   if (denominator === 0) {
-    return (0).toFixed(digits);
+    return "-";
   }
 
   return (numerator / denominator).toFixed(digits);
@@ -114,10 +121,9 @@ export function parseStatsRow(
   }
 
   stats.avg = ratio(battingHits, atBats, 3);
-  stats.era = innings === 0 ? "0.00" : ((earnedRuns * 9) / innings).toFixed(2);
-  stats.whip = innings === 0
-    ? "0.00"
-    : ((hitsAllowed + walksAllowed) / innings).toFixed(2);
+  stats.era = innings === 0 ? "-" : ((earnedRuns * 9) / innings).toFixed(2);
+  stats.whip =
+    innings === 0 ? "-" : ((hitsAllowed + walksAllowed) / innings).toFixed(2);
 
   return { teamId, week, stats };
 }

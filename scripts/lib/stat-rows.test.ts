@@ -68,6 +68,7 @@ describe("parseStatsRow", () => {
   });
 
   it("rejects a missing support column", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { hits_allowed: _dropped, ...withoutHitsAllowed } = validRow;
 
     expect(() =>
@@ -91,7 +92,7 @@ describe("parseStatsRow", () => {
     ).toThrow();
   });
 
-  it("handles zero innings pitched without dividing by zero", () => {
+  it("emits '-' for zero-IP ratios instead of fabricating a best-possible ERA/WHIP", () => {
     const parsed = parseStatsRow(
       {
         ...validRow,
@@ -104,7 +105,17 @@ describe("parseStatsRow", () => {
       options,
     );
 
-    expect(parsed.stats.era).toBe("0.00");
-    expect(parsed.stats.whip).toBe("0.00");
+    expect(parsed.stats.era).toBe("-");
+    expect(parsed.stats.whip).toBe("-");
+  });
+
+  it("emits '-' for zero-AB average instead of a worst-possible .000", () => {
+    const parsed = parseStatsRow(
+      { ...validRow, at_bats: "0", batting_hits: "0" },
+      SEEDED_STAT_CATEGORIES,
+      options,
+    );
+
+    expect(parsed.stats.avg).toBe("-");
   });
 });

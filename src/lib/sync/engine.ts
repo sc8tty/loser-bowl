@@ -12,6 +12,7 @@ export type SyncDeps = {
   claimLock: (now: Date) => Promise<boolean>;
   releaseLock: (outcome: {
     success: boolean;
+    wroteData: boolean;
     nextRetryAt: Date | null;
     now: Date;
   }) => Promise<void>;
@@ -48,6 +49,7 @@ export async function runSync(
 
   try {
     const detail = (await deps.source()) ?? {};
+    const wroteData = detail.wroteData === true;
     const finishedAt = now();
 
     await deps.recordRun({
@@ -58,7 +60,12 @@ export async function runSync(
       error: null,
       detail,
     });
-    await deps.releaseLock({ success: true, nextRetryAt: null, now: finishedAt });
+    await deps.releaseLock({
+      success: true,
+      wroteData,
+      nextRetryAt: null,
+      now: finishedAt,
+    });
 
     return { ran: true, status: "success" };
   } catch (error) {
@@ -75,7 +82,12 @@ export async function runSync(
       error: message,
       detail: { consecutiveFailures: failures },
     });
-    await deps.releaseLock({ success: false, nextRetryAt, now: finishedAt });
+    await deps.releaseLock({
+      success: false,
+      wroteData: false,
+      nextRetryAt,
+      now: finishedAt,
+    });
 
     return { ran: true, status: "error", error: message };
   }

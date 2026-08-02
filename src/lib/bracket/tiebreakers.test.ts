@@ -97,3 +97,41 @@ describe("applyTiebreakers", () => {
     ).toEqual({ winnerTeamId: "team-a", decidedBy: "seed" });
   });
 });
+
+// Regression tests for the 2026-08-02 cold review (finding F: garbage tiebreak input).
+describe("applyTiebreakers rejects corrupt context instead of silently proceeding", () => {
+  it("throws when a matchup's category-win counts are missing", () => {
+    expect(() =>
+      applyTiebreakers(
+        { teamAId: "team-a", teamBId: "team-b" },
+        {
+          regularSeasonMatchups: [],
+          outcomeTotalsByTeamId: {},
+          seedsByTeamId: { "team-a": 9, "team-b": 16 },
+        },
+      ),
+    ).toThrow(/missing category win counts/);
+  });
+
+  it("throws when a regular-season row names a winner outside the pair", () => {
+    expect(() =>
+      applyTiebreakers(tiedMatchup, {
+        regularSeasonMatchups: [
+          { teamAId: "team-a", teamBId: "team-b", winnerTeamId: "team-z" },
+        ],
+        outcomeTotalsByTeamId: {},
+        seedsByTeamId: { "team-a": 9, "team-b": 16 },
+      }),
+    ).toThrow(/neither team/);
+  });
+
+  it("throws when season category-win totals are missing rather than skipping to seed", () => {
+    expect(() =>
+      applyTiebreakers(tiedMatchup, {
+        regularSeasonMatchups: [],
+        outcomeTotalsByTeamId: { "team-a": { category_wins: 90 } },
+        seedsByTeamId: { "team-a": 9, "team-b": 16 },
+      }),
+    ).toThrow(/missing season category-win totals/);
+  });
+});

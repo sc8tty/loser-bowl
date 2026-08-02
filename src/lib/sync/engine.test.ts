@@ -66,8 +66,18 @@ describe("runSync", () => {
       error: null,
     });
     expect(deps.releases).toEqual([
-      { success: true, nextRetryAt: null, now: NOW },
+      { success: true, wroteData: false, nextRetryAt: null, now: NOW },
     ]);
+  });
+
+  it("advances last_success only when the source actually wrote data", async () => {
+    const wrote = fakeDeps({ source: async () => ({ wroteData: true }) });
+    await runSync("visit", wrote);
+    expect(wrote.releases[0]).toMatchObject({ success: true, wroteData: true });
+
+    const noop = fakeDeps({ source: async () => ({ wroteData: false }) });
+    await runSync("visit", noop);
+    expect(noop.releases[0]).toMatchObject({ success: true, wroteData: false });
   });
 
   it("records an error run, sets exponential backoff, and still releases the lock", async () => {

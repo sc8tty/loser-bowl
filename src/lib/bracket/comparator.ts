@@ -35,6 +35,8 @@ export type InningsMinimumPolicyInput = {
   statsA: WeekStats;
   statsB: WeekStats;
   minInningsPitched: number | null;
+  /** Mid-week ("live") data legitimately lacks IP; only "final" is strict. */
+  mode: "live" | "final";
 };
 
 export type InningsMinimumPolicyDecision =
@@ -84,6 +86,7 @@ export const defaultInningsMinimumPolicy: InningsMinimumPolicy = ({
   statsA,
   statsB,
   minInningsPitched,
+  mode,
 }) => {
   if (
     minInningsPitched === null ||
@@ -96,10 +99,17 @@ export const defaultInningsMinimumPolicy: InningsMinimumPolicy = ({
   const inningsA = parseMaybeInningsPitched(statsA.innings_pitched);
   const inningsB = parseMaybeInningsPitched(statsB.innings_pitched);
 
-  // A MISSING innings_pitched stat is corrupt input, not zero innings — Yahoo
-  // always reports IP. Treating absence as "below minimum" would forfeit
-  // pitching categories on bad data (max-review finding E).
   if (inningsA === null || inningsB === null) {
+    // Live mode: a team with no IP yet is expected mid-week — the policy
+    // simply doesn't apply, and the normal null-tolerant comparison renders
+    // it (cold-review P2-6).
+    if (mode === "live") {
+      return { applies: false };
+    }
+
+    // Final mode: a MISSING innings_pitched stat is corrupt input, not zero
+    // innings — Yahoo always reports IP. Treating absence as "below minimum"
+    // would forfeit pitching categories on bad data (max-review finding E).
     throw new Error(
       "Innings-minimum policy requires innings_pitched for both teams; a missing IP stat is a data-integrity error, not a forfeit.",
     );
@@ -154,6 +164,20 @@ function parseComparableValue(
   }
 
   return parseRatio(trimmed).value;
+}
+
+function parseComparable(
+  slug: string,
+  raw: WeekStats[string],
+): number | null {
+  // IP must ALWAYS route through the thirds parser — including numeric input,
+  // so decimal-vs-thirds ambiguity throws on the compare path too instead of
+  // comparing 100.2 against "100.1"'s 100.333 (cold-review P3-1; finding D).
+  if (slug === "innings_pitched" && typeof raw === "number") {
+    return parseInningsPitched(raw).value;
+  }
+
+  return parseComparableValue(slug, raw);
 }
 
 function compareValues(
@@ -218,21 +242,33 @@ export function compareWeek(
       continue;
     }
 
-    const teamAValue = parseComparableValue(category.slug, statsA[category.slug]);
-    const teamBValue = parseComparableValue(category.slug, statsB[category.slug]);
+    const teamAValue = parseComparable(category.slug, statsA[category.slug]);
+    const teamBValue = parseComparable(category.slug, statsB[category.slug]);
 
-    if (mode === "final" && (teamAValue === null) !== (teamBValue === null)) {
-      throw new Error(
-        `Category "${category.slug}" has a value for one team but not the other — corrupt final-week data (silent tie refused).`,
-      );
-    }
-
+    // Policy first: a below-minimum team legitimately shows "-" for ERA/WHIP
+    // in its final week, and the forfeit must win over the integrity throw
+    // (cold-review P2-5).
     const policyDecision = inningsMinimumPolicy({
       category,
       statsA,
       statsB,
       minInningsPitched,
+      mode,
     });
+
+    if (
+      !policyDecision.applies &&
+      mode === "final" &&
+      (teamAValue === null || teamBValue === null)
+    ) {
+      // Either-side null in final data is corrupt input — including BOTH null,
+      // which is the signature of a settings-slug/stat-key mismatch that would
+      // otherwise 0-0 tie every category (cold-review P3-2; max-review H).
+      throw new Error(
+        `Category "${category.slug}" is missing a final value (${teamAValue === null ? "team A" : "team B"}${teamAValue === null && teamBValue === null ? " and team B" : ""}) — corrupt final-week data (silent tie refused).`,
+      );
+    }
+
     const winner = policyDecision.applies
       ? policyDecision.winner
       : compareValues(teamAValue, teamBValue, category.sort_order);

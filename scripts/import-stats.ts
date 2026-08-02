@@ -83,6 +83,9 @@ async function main() {
           set: {
             stats: sql`excluded.stats`,
             source: sql`excluded.source`,
+            // Clear any stale Yahoo run pointer — this row's provenance is now
+            // the import (cold-review P3-6).
+            syncRunId: sql`excluded.sync_run_id`,
             syncedAt: sql`now()`,
           },
         });

@@ -104,3 +104,22 @@ describe("parseCliArgs", () => {
     expect(() => parseCliArgs(["--dry-run"], "usage")).toThrow(/exactly one/i);
   });
 });
+
+// Regression tests for the 2026-08-02 cold review.
+describe("parseCsv header hygiene (P3-8)", () => {
+  it("rejects a trailing delimiter on the header row", () => {
+    expect(() => parseCsv("a,b,\n1,2,3\n")).toThrow(/empty column name/i);
+  });
+});
+
+describe("assertCompleteRanks rejects duplicate team ids (P2-3)", () => {
+  it("rejects a duplicated team id even with complete ranks", () => {
+    const entries = Array.from({ length: 15 }, (_, index) => ({
+      teamId: `team-${index + 1}`,
+      rank: index + 1,
+    }));
+    entries.push({ teamId: "team-1", rank: 16 });
+
+    expect(() => assertCompleteRanks(entries)).toThrow(/unique team ids/i);
+  });
+});

@@ -166,8 +166,8 @@ describe("compareWeek", () => {
 
   it("lets callers swap the innings-minimum policy", () => {
     const result = compareWeek(
-      { era: "1.00", whip: "1.00", innings_pitched: "0.0" },
-      { era: "9.00", whip: "9.00", innings_pitched: "99.0" },
+      { hr: "5", avg: "0.280", era: "1.00", whip: "1.00", innings_pitched: "0.0" },
+      { hr: "5", avg: "0.280", era: "9.00", whip: "9.00", innings_pitched: "99.0" },
       categories,
       {
         minInningsPitched: 12,
@@ -197,5 +197,99 @@ describe("compareWeek", () => {
       ["era", "teamA", "custom_override"],
       ["whip", "teamB", "innings_minimum"],
     ]);
+  });
+});
+
+// Regression tests for the 2026-08-02 cold review (docs/reviews/issue-5-6a-4a-cold-review.md).
+describe("compareWeek regressions from the cold review", () => {
+  const eraCategory: WeekStatCategory = {
+    slug: "era",
+    sort_order: "asc",
+    is_only_display_stat: false,
+  };
+  const hrCategory: WeekStatCategory = {
+    slug: "hr",
+    sort_order: "desc",
+    is_only_display_stat: false,
+  };
+
+  it("P2-5: below-minimum forfeit wins over the final-mode integrity throw", () => {
+    const result = compareWeek(
+      { era: "-", innings_pitched: "0.0" },
+      { era: "3.10", innings_pitched: "40.0" },
+      [eraCategory],
+      { minInningsPitched: 10, mode: "final" },
+    );
+
+    expect(result.winner).toBe("teamB");
+    expect(result.categories[0].decidedByPolicy).toBe("innings_minimum");
+  });
+
+  it("P2-6: live mode tolerates a missing innings_pitched instead of throwing", () => {
+    expect(() =>
+      compareWeek(
+        { era: "-", innings_pitched: "-" },
+        { era: "3.10", innings_pitched: "5.0" },
+        [eraCategory],
+        { minInningsPitched: 10, mode: "live" },
+      ),
+    ).not.toThrow();
+  });
+
+  it("final mode still throws when innings_pitched is missing and no policy applies", () => {
+    expect(() =>
+      compareWeek(
+        { era: "-", innings_pitched: "-" },
+        { era: "3.10", innings_pitched: "5.0" },
+        [eraCategory],
+        { minInningsPitched: 10, mode: "final" },
+      ),
+    ).toThrow(/data-integrity/);
+  });
+
+  it("P3-1: numeric fractional innings_pitched throws instead of silently mis-parsing", () => {
+    const ipCategory: WeekStatCategory = {
+      slug: "innings_pitched",
+      sort_order: "desc",
+      is_only_display_stat: false,
+    };
+
+    expect(() =>
+      compareWeek(
+        { innings_pitched: 100.2 },
+        { innings_pitched: "100.1" },
+        [ipCategory],
+        { mode: "final" },
+      ),
+    ).toThrow(/Ambiguous numeric/);
+  });
+
+  it("P3-2: both-sides-missing final data throws instead of a silent tie", () => {
+    expect(() =>
+      compareWeek({}, {}, [hrCategory], { mode: "final" }),
+    ).toThrow(/team A and team B/);
+  });
+
+  it("one-sided missing final data still throws (existing H behavior retained)", () => {
+    expect(() =>
+      compareWeek({ hr: "4" }, {}, [hrCategory], { mode: "final" }),
+    ).toThrow(/team B/);
+  });
+
+  it("live mode tolerates one-sided missing data as a tie for display", () => {
+    const result = compareWeek({ hr: "4" }, {}, [hrCategory], { mode: "live" });
+    expect(result.categories[0].winner).toBe("tie");
+  });
+
+  it("defaultInningsMinimumPolicy live mode does not apply when IP is absent", () => {
+    expect(
+      defaultInningsMinimumPolicy({
+        category: eraCategory,
+        statsA: {},
+        statsB: { innings_pitched: "5.0" },
+        minInningsPitched: 10,
+        mode: "live",
+      }),
+    ).toEqual({ applies: false });
   });
 });
