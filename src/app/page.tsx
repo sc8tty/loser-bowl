@@ -1,7 +1,7 @@
 import { LEAGUE_CONFIG } from "@/config/league";
 import { ProjectedPairings } from "@/components/projected-pairings";
 import { StandingsTable } from "@/components/standings-table";
-import { getProjectedRoundOnePairings } from "@/lib/bracket";
+import { formatLockCountdown, getProjectedRoundOnePairings } from "@/lib/bracket";
 import { getLeagueData } from "@/lib/sync/trigger";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,9 @@ function formatConfigDate(date: string) {
 
 export default async function Home() {
   const raceData = await getLeagueData();
-  const updatedAgo = formatUpdatedAgo(raceData.lastSuccessAt, new Date());
+  const now = new Date();
+  const updatedAgo = formatUpdatedAgo(raceData.lastSuccessAt, now);
+  const lockCountdown = formatLockCountdown(now, LEAGUE_CONFIG);
   const pairings =
     raceData.status === "ready"
       ? getProjectedRoundOnePairings(raceData.teams)
@@ -67,7 +69,8 @@ export default async function Home() {
               <StatusPill label="Season" value={String(LEAGUE_CONFIG.season)} />
               <StatusPill
                 label="Lock"
-                value={formatConfigDate(LEAGUE_CONFIG.bracketLockDate)}
+                value={lockCountdown}
+                detail={formatConfigDate(LEAGUE_CONFIG.bracketLockDate)}
               />
             </div>
           </div>
@@ -139,13 +142,24 @@ export default async function Home() {
   );
 }
 
-function StatusPill({ label, value }: { label: string; value: string }) {
+function StatusPill({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail?: string;
+}) {
   return (
     <div className="border border-stone-700 px-3 py-2">
       <div className="text-xs font-semibold uppercase text-stone-400">
         {label}
       </div>
       <div className="font-mono text-sm font-semibold text-white">{value}</div>
+      {detail ? (
+        <div className="mt-1 text-xs font-medium text-stone-400">{detail}</div>
+      ) : null}
     </div>
   );
 }

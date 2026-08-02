@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { LEAGUE_CONFIG } from "@/config/league";
 
-import { phase } from "./phase";
+import { formatLockCountdown, phase } from "./phase";
 
 describe("phase", () => {
   it("stays in race phase through the configured lock date in league time", () => {
@@ -52,5 +52,31 @@ describe("phase", () => {
         overrideWinnerTeamId: "team-b",
       }),
     ).toBe("champion");
+  });
+});
+
+describe("formatLockCountdown", () => {
+  it("shows days remaining when the lock is several days out", () => {
+    expect(
+      formatLockCountdown(new Date("2026-08-31T07:00:00.000Z"), LEAGUE_CONFIG),
+    ).toBe("6 days until lock");
+  });
+
+  it("shows tomorrow on the league-time day before lock", () => {
+    expect(
+      formatLockCountdown(new Date("2026-09-06T06:59:59.000Z"), LEAGUE_CONFIG),
+    ).toBe("Locks tomorrow");
+  });
+
+  it("shows today on the lock date in league time", () => {
+    expect(
+      formatLockCountdown(new Date("2026-09-06T07:00:00.000Z"), LEAGUE_CONFIG),
+    ).toBe("Locks today");
+  });
+
+  it("shows a past-lock state after the lock date in league time", () => {
+    expect(
+      formatLockCountdown(new Date("2026-09-07T07:00:00.000Z"), LEAGUE_CONFIG),
+    ).toBe("Lock passed");
   });
 });

@@ -15,6 +15,8 @@ function isDropZone(team: StandingsTeam) {
 }
 
 export function StandingsTable({ teams }: { teams: readonly StandingsTeam[] }) {
+  const firstDropZoneIndex = teams.findIndex(isDropZone);
+
   return (
     <div className="overflow-hidden border border-stone-300 bg-white">
       <div className="overflow-x-auto">
@@ -36,8 +38,12 @@ export function StandingsTable({ teams }: { teams: readonly StandingsTeam[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-stone-200">
-            {teams.map((team) => (
-              <DropZoneFragment key={team.id} team={team} />
+            {teams.map((team, index) => (
+              <DropZoneFragment
+                key={team.id}
+                team={team}
+                showHeader={index === firstDropZoneIndex}
+              />
             ))}
           </tbody>
         </table>
@@ -46,12 +52,18 @@ export function StandingsTable({ teams }: { teams: readonly StandingsTeam[] }) {
   );
 }
 
-function DropZoneFragment({ team }: { team: StandingsTeam }) {
+function DropZoneFragment({
+  team,
+  showHeader,
+}: {
+  team: StandingsTeam;
+  showHeader: boolean;
+}) {
   const inDropZone = isDropZone(team);
 
   return (
     <>
-      {team.currentRank === 9 ? (
+      {showHeader ? (
         <tr className="bg-rose-950 text-white">
           <th
             scope="rowgroup"

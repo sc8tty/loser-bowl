@@ -17,19 +17,24 @@ export type ProjectedPairing<TTeam extends RankedTeam> = {
 export function getProjectedRoundOnePairings<TTeam extends RankedTeam>(
   teams: readonly TTeam[],
 ): ProjectedPairing<TTeam>[] {
-  const teamsByRank = new Map<number, TTeam>();
+  const teamsByRank = new Map<number, TTeam[]>();
 
   for (const team of teams) {
-    teamsByRank.set(team.currentRank, team);
+    const rankedTeams = teamsByRank.get(team.currentRank) ?? [];
+    rankedTeams.push(team);
+    teamsByRank.set(team.currentRank, rankedTeams);
   }
 
   return LOSER_BOWL_ROUND_ONE_SEED_PAIRS.flatMap(([highSeed, lowSeed]) => {
-    const highTeam = teamsByRank.get(highSeed);
-    const lowTeam = teamsByRank.get(lowSeed);
+    const highTeams = teamsByRank.get(highSeed) ?? [];
+    const lowTeams = teamsByRank.get(lowSeed) ?? [];
 
-    if (!highTeam || !lowTeam) {
+    if (highTeams.length !== 1 || lowTeams.length !== 1) {
       return [];
     }
+
+    const [highTeam] = highTeams;
+    const [lowTeam] = lowTeams;
 
     return [
       {

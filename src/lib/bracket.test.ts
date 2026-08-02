@@ -65,4 +65,14 @@ describe("getProjectedRoundOnePairings", () => {
       },
     ]);
   });
+
+  it("omits pairings when a projected seed rank is ambiguous", () => {
+    expect(
+      getProjectedRoundOnePairings([
+        { id: "team-9-a", name: "Nine A", currentRank: 9 },
+        { id: "team-9-b", name: "Nine B", currentRank: 9 },
+        { id: "team-16", name: "Sixteen", currentRank: 16 },
+      ]),
+    ).toEqual([]);
+  });
 });

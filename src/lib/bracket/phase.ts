@@ -11,6 +11,8 @@ export type FinalMatchupForPhase = {
   overrideWinnerTeamId?: string | null;
 };
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 function dateKeyInTimeZone(date: Date, timeZone: string): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
@@ -28,6 +30,18 @@ function dateKeyInTimeZone(date: Date, timeZone: string): string {
   }
 
   return `${year}-${month}-${day}`;
+}
+
+function dateKeyToUtcMs(dateKey: string): number {
+  const [year, month, day] = dateKey.split("-").map(Number);
+
+  return Date.UTC(year, month - 1, day);
+}
+
+function daysBetweenDateKeys(startDateKey: string, endDateKey: string): number {
+  return Math.round(
+    (dateKeyToUtcMs(endDateKey) - dateKeyToUtcMs(startDateKey)) / MS_PER_DAY,
+  );
 }
 
 function effectiveWinner(finalMatchup: FinalMatchupForPhase | null): string | null {
@@ -54,4 +68,23 @@ export function phase(
   return dateKeyInTimeZone(now, config.timeZone) <= config.bracketLockDate
     ? "race"
     : "bracket";
+}
+
+export function formatLockCountdown(now: Date, config: PhaseConfig): string {
+  const today = dateKeyInTimeZone(now, config.timeZone);
+  const daysUntilLock = daysBetweenDateKeys(today, config.bracketLockDate);
+
+  if (daysUntilLock > 1) {
+    return `${daysUntilLock} days until lock`;
+  }
+
+  if (daysUntilLock === 1) {
+    return "Locks tomorrow";
+  }
+
+  if (daysUntilLock === 0) {
+    return "Locks today";
+  }
+
+  return "Lock passed";
 }
