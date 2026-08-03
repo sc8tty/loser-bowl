@@ -5,6 +5,7 @@ import { desc, eq, inArray, sql } from "drizzle-orm";
 import { getDb } from "@/db";
 import { syncRuns, syncState } from "@/db/schema";
 import type { SyncDeps, SyncTrigger } from "./engine";
+import { processMatchups } from "./matchupCompute";
 import { processSeedLock } from "./seedLock";
 
 export const LOCK_TTL_MS = 2 * 60 * 1000;
@@ -115,13 +116,16 @@ export async function noopSource(): Promise<Record<string, unknown>> {
 }
 
 export async function defaultSyncSource(): Promise<Record<string, unknown>> {
-  const seedLock = await processSeedLock();
+  const now = new Date();
+  const seedLock = await processSeedLock({ now: () => now });
+  const matchups = await processMatchups({ now: () => now });
 
   return {
     source: "default",
     note: "sync shell — real Yahoo source lands with Issue 4B",
     seedLock,
-    wroteData: seedLock.wroteData,
+    matchups,
+    wroteData: seedLock.wroteData || matchups.wroteData,
   };
 }
 

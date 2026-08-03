@@ -1,12 +1,9 @@
-import { eq } from "drizzle-orm";
 import { type NextRequest } from "next/server";
 import { z } from "zod";
 
-import { getDb, MissingDatabaseUrlError } from "@/db";
-import { matchups } from "@/db/schema";
+import { MissingDatabaseUrlError } from "@/db";
 import { adminRedirect, requireAdminMutation } from "@/lib/admin/responses";
-import { jsonFingerprint } from "@/lib/admin/state";
-import { transitionMatchupState } from "@/lib/bracket/stateMachine";
+import { overrideMatchupWinner } from "@/lib/sync/matchupCompute";
 
 export const dynamic = "force-dynamic";
 
@@ -32,64 +29,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const db = getDb();
-    const matchup = (
-      await db
-        .select()
-        .from(matchups)
-        .where(eq(matchups.id, parsed.data.matchupId))
-        .limit(1)
-    )[0];
-
-    if (matchup === undefined) {
-      return adminRedirect(request, { error: "missing_matchup" });
-    }
-
-    const allowedWinnerIds = [matchup.highTeamId, matchup.lowTeamId].filter(
-      (teamId): teamId is string => teamId !== null,
+    const now = new Date();
+    const result = await overrideMatchupWinner(
+      {
+        matchupId: parsed.data.matchupId,
+        winnerTeamId: parsed.data.winnerTeamId,
+        overrideNote: parsed.data.overrideNote,
+      },
+      { now: () => now },
     );
 
-    if (!allowedWinnerIds.includes(parsed.data.winnerTeamId)) {
-      return adminRedirect(request, { error: "invalid_winner" });
-    }
-
-    const now = new Date();
-    const update = {
-      overrideWinnerTeamId: parsed.data.winnerTeamId,
-      overrideNote: parsed.data.overrideNote,
-      overriddenAt: now,
-      ...(matchup.status === "under_review"
-        ? {
-            status: transitionMatchupState(
-              {
-                status: matchup.status,
-                resultFingerprint: jsonFingerprint(matchup.computedTally),
-                computedWinnerTeamId: matchup.computedWinnerTeamId,
-                overrideWinnerTeamId: matchup.overrideWinnerTeamId,
-                lockedAt: matchup.lockedAt ?? undefined,
-                settledAt: matchup.settledAt ?? undefined,
-                review: {
-                  originalWinnerTeamId: matchup.computedWinnerTeamId ?? null,
-                  correctedWinnerTeamId: parsed.data.winnerTeamId,
-                  originalResultFingerprint: jsonFingerprint(matchup.computedTally),
-                  correctedResultFingerprint: jsonFingerprint(matchup.computedTally),
-                  detectedAt: now,
-                },
-              },
-              { type: "admin_override_corrected" },
-              now,
-            ).nextState.status,
-            settledAt: now,
-          }
-        : {}),
-    };
-
-    await db
-      .update(matchups)
-      .set(update)
-      .where(eq(matchups.id, parsed.data.matchupId));
-
-    return adminRedirect(request, { notice: "override_saved" });
+    return result.ok
+      ? adminRedirect(request, { notice: result.notice })
+      : adminRedirect(request, { error: result.error });
   } catch (error) {
     if (error instanceof MissingDatabaseUrlError) {
       return adminRedirect(request, { error: "database" });

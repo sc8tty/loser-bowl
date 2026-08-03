@@ -1,4 +1,5 @@
 export * from "./comparator";
+export * from "./matchupProcessor";
 export * from "./parsers";
 export * from "./phase";
 export * from "./projectedPairings";

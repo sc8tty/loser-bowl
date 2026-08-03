@@ -30,6 +30,7 @@ function pageMessage(type: "notice" | "error", value: string | undefined): strin
     sync_skipped: "Sync did not run because another sync holds the lock.",
     override_saved: "Matchup override saved.",
     matchup_settled: "Matchup settled.",
+    matchup_under_review: "Matchup entered commissioner review.",
     matchup_window_open: "Correction window is still open; matchup stayed provisional.",
     matchup_confirmed: "Original matchup result confirmed.",
     seed_lock_settled: "Seed lock settled.",
