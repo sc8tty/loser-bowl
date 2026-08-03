@@ -4,8 +4,26 @@
 - **1A** (tracer bullet), **5** (bracket engine), **6A** (CSV import scripts),
   **4A** (sync shell), **7** (Race to the Bottom polish — lock countdown, drop-zone/pairing
   edge cases), **11** (Admin page — bcrypt+HMAC auth, sync log, override/settle controls,
-  Yahoo health), **8** (Seed lock + bracket creation — see below) — all built, cold-reviewed
-  by fresh-context sessions, findings fixed. 142 tests green. HEAD after Issue 8: `4788a62`.
+  Yahoo health), **8** (Seed lock + bracket creation), **9** (Live compute + provisional
+  advancement + settle/flag flow — see below) — all built, cold-reviewed by fresh-context
+  sessions, findings fixed. 157 tests green. HEAD after Issue 9: `732382f`.
+- **Issue 9** bridges the pure comparator/tiebreaker/state-machine engine (Issue 5) to real
+  weekly matchup computation: `matchupProcessor.ts` (pure decisions — compute a week via
+  `compareWeek`, tiebreak on a true tie, advance a round once every source matchup has an
+  effective winner and none are `under_review`, re-seed via `nextRoundPairings` from
+  original bowl seeds) + `matchupCompute.ts` (transactional DB executor, same atomic
+  per-status-guard pattern as Issue 8's seed lock). Dress-rehearsal integration test drives a
+  full fake 3-week bracket: seed lock → h2h tiebreak → a stat-correction flip that freezes
+  its branch while others keep computing → admin override → resumed advancement → champion.
+  Cold review found **no correctness bugs** but flagged a real gap against this project's own
+  test-first convention: the new pure module had only the one integration test vs. 8-15
+  discrete branch-level cases for comparable modules (`seedLockProcessor.ts`,
+  `stateMachine.ts`). A follow-up Codex pass closed it: 143 → 157 tests, plus a fix to the
+  dress rehearsal's freeze assertion (it wasn't actually isolating the freeze as the cause
+  vs. missing data) and a fragile object-spread cleanup. This is the biggest, most
+  consequential remaining piece of business logic in the project (decides real bracket
+  outcomes for the $50 pot) — worth another look in the eventual Fable heavyweight review
+  even though the per-issue cold review came back clean.
 - Issue 8 bridges the pure bracket state machine (Issue 5) to real DB writes: a
   `seedLockProcessor.ts` pure decision function + `seedLock.ts` transactional executor with
   atomic per-action `WHERE status = '<expected>' ... RETURNING` guards, so the 7-row bracket
@@ -86,10 +104,12 @@ ones.
   manual-mode fallback gate. Watch sc8tty@gmail.com for any clarification requests.
 
 ## Next issues to build (all Yahoo-free, no blockers)
-- **10** — Bracket UI + matchup detail (buildable against fixtures, parallel to 9)
-- **9** — Live compute + provisional advancement + settle/flag flow (needs 8, done — and a
-  data source: manual mode via Issue 6A's import scripts works today; Yahoo path waits on
-  the API access gate)
+- **10** — Bracket UI + matchup detail (pending/live/provisional/final/under-review/
+  overridden states) — buildable now against fixtures; 9 (its main blocker) is done
+- **12** — Champion state (blocked by 9, 10 — 9 done, needs 10). Note: `phase.ts`'s existing
+  `phase()` function already derives the champion phase purely from the final matchup's
+  effective winner + status, so this may be mostly a UI/copy task once 10 exists
+- **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers)
 
 ## Process notes for next session
 - **Codex worked cleanly this session** (3/3, no hangs) — a reversal of last session's 4
@@ -114,3 +134,14 @@ ones.
 - Effort-slider gotcha: the rightmost position in Scott's UI is **Ultracode** (mandates
   multi-agent workflows, expensive), not "max thinking." For heavyweight reviews use Fable
   one notch left of Ultracode.
+- **When cold review finds a real gap (not just a bug), a scoped follow-up Codex task works
+  well** — Issue 9's follow-up (close a test-coverage gap + two small findings) took ~10 min,
+  found no new bugs, and the resulting diff was worth spot-checking directly (not just
+  trusting green tests) before committing — e.g. manually verified the re-seeding test table
+  against PRD's "highest remaining seed plays lowest" rule for top/bottom/mixed-seed cases.
+  Reserve this for real gaps against the project's own stated conventions (PRD's test-first
+  mandate), not for the kind of defensive/speculative findings [[feedback_cold_review_scope]]
+  says to ship as-is.
+- The heavyweight Fable review (Issue 9, the security pass) is still pending — see
+  [[project_build_state]]. Issue 9 now exists and is a strong candidate for it even though
+  the lighter per-issue cold review came back clean, given the stakes.
