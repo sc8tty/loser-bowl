@@ -1,6 +1,4 @@
-import { timingSafeEqual } from "node:crypto";
-
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 
 import { MissingDatabaseUrlError } from "@/db";
 import { adminRedirect, requireAdminMutation } from "@/lib/admin/responses";
@@ -9,28 +7,6 @@ import { dbSyncDeps } from "@/lib/sync/lock";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-function bearerMatches(authorization: string | null, secret: string): boolean {
-  const expected = Buffer.from(`Bearer ${secret}`);
-  const received = Buffer.from(authorization ?? "");
-
-  return (
-    expected.length === received.length && timingSafeEqual(expected, received)
-  );
-}
-
-/** Daily cron backstop (PRD): Vercel invokes with the CRON_SECRET bearer. */
-export async function GET(request: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret || !bearerMatches(request.headers.get("authorization"), cronSecret)) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const outcome = await runSync("cron", dbSyncDeps());
-
-  return NextResponse.json(outcome);
-}
 
 export async function POST(request: NextRequest) {
   const blocked = requireAdminMutation(request);
