@@ -5,8 +5,7 @@ import { z } from "zod";
 import { getDb, MissingDatabaseUrlError } from "@/db";
 import { syncState } from "@/db/schema";
 import { adminRedirect, requireAdminMutation } from "@/lib/admin/responses";
-import { jsonFingerprint } from "@/lib/admin/state";
-import { transitionSeedLockState } from "@/lib/bracket/stateMachine";
+import { processSeedLock, resolveSeedLockReview } from "@/lib/sync/seedLock";
 
 export const dynamic = "force-dynamic";
 
@@ -30,90 +29,50 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const db = getDb();
-    const state = (
-      await db.select().from(syncState).where(eq(syncState.id, 1)).limit(1)
-    )[0];
-
-    if (state === undefined) {
-      return adminRedirect(request, { error: "database" });
-    }
-
     const now = new Date();
-    const fingerprint = jsonFingerprint(state.seedsSnapshot);
 
     if (parsed.data.action === "settle_provisional") {
-      if (state.seedLockStatus !== "provisional") {
+      const db = getDb();
+      const state = (
+        await db.select().from(syncState).where(eq(syncState.id, 1)).limit(1)
+      )[0];
+
+      if (state?.seedLockStatus !== "provisional") {
         return adminRedirect(request, { error: "invalid_state" });
       }
 
-      if (state.seedsLockedAt === null) {
-        return adminRedirect(request, { error: "missing_lock_time" });
-      }
+      const result = await processSeedLock({ now: () => now });
 
-      const transition = transitionSeedLockState(
-        {
-          status: state.seedLockStatus,
-          seedFingerprint: fingerprint,
-          seedsLockedAt: state.seedsLockedAt,
-          seedsSettledAt: state.seedsSettledAt ?? undefined,
-          review: null,
-        },
-        { type: "settle_check", seedFingerprint: fingerprint },
-        now,
-      );
-
-      if (transition.nextState.status === "provisional") {
+      if (result.action === "none" && result.reason === "settle_window_open") {
         return adminRedirect(request, { notice: "seed_lock_window_open" });
       }
 
-      await db
-        .update(syncState)
-        .set({
-          seedLockStatus: transition.nextState.status,
-          seedsSettledAt: transition.nextState.seedsSettledAt ?? now,
-        })
-        .where(eq(syncState.id, 1));
+      if (result.action === "settle" && result.applied) {
+        return adminRedirect(request, { notice: "seed_lock_settled" });
+      }
 
-      return adminRedirect(request, { notice: "seed_lock_settled" });
+      if (result.action === "flag_review" && result.applied) {
+        return adminRedirect(request, { notice: "seed_lock_under_review" });
+      }
+
+      return adminRedirect(request, {
+        error:
+          result.reason === "missing_lock_time"
+            ? "missing_lock_time"
+            : "invalid_state",
+      });
     }
 
-    if (state.seedLockStatus !== "under_review") {
-      return adminRedirect(request, { error: "invalid_state" });
-    }
-
-    const transition = transitionSeedLockState(
-      {
-        status: state.seedLockStatus,
-        seedFingerprint: fingerprint,
-        seedsLockedAt: state.seedsLockedAt ?? undefined,
-        seedsSettledAt: state.seedsSettledAt ?? undefined,
-        review: {
-          originalSeedFingerprint: fingerprint,
-          correctedSeedFingerprint: fingerprint,
-          detectedAt: now,
-        },
-      },
+    const result = await resolveSeedLockReview(
       parsed.data.action === "confirm_original"
-        ? { type: "admin_confirm_original" }
-        : { type: "admin_relock_corrected" },
-      now,
+        ? "confirm_original"
+        : "relock_corrected",
+      { now: () => now },
     );
 
-    await db
-      .update(syncState)
-      .set({
-        seedLockStatus: transition.nextState.status,
-        seedsSettledAt: transition.nextState.seedsSettledAt ?? now,
-      })
-      .where(eq(syncState.id, 1));
-
-    return adminRedirect(request, {
-      notice:
-        parsed.data.action === "confirm_original"
-          ? "seed_lock_confirmed"
-          : "seed_lock_relocked",
-    });
+    return result.ok
+      ? adminRedirect(request, { notice: result.notice })
+      : adminRedirect(request, { error: result.error });
   } catch (error) {
     if (error instanceof MissingDatabaseUrlError) {
       return adminRedirect(request, { error: "database" });

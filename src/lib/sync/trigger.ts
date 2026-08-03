@@ -7,6 +7,7 @@ import { LEAGUE_CONFIG } from "@/config/league";
 import { getDb, MissingDatabaseUrlError } from "@/db";
 import { matchups, syncState, teams as teamsTable } from "@/db/schema";
 import { phase, type BracketPhase } from "@/lib/bracket/phase";
+import { decideSeedLock } from "@/lib/bracket/seedLockProcessor";
 import { runSync } from "./engine";
 import { isStale } from "./freshness";
 import { dbSyncDeps } from "./lock";
@@ -92,7 +93,23 @@ export async function getLeagueData(): Promise<LeagueData> {
       finalMatchup,
     );
 
-    if (isStale(lastSuccessAt, currentPhase, now)) {
+    const seedLockDecision = stateRows[0]
+      ? decideSeedLock({
+          standings: teamRows,
+          syncState: {
+            seedLockStatus: stateRows[0].seedLockStatus,
+            seedsLockedAt: stateRows[0].seedsLockedAt,
+            seedsSettledAt: stateRows[0].seedsSettledAt,
+            seedsSnapshot: stateRows[0].seedsSnapshot,
+          },
+          now,
+        })
+      : null;
+
+    if (
+      isStale(lastSuccessAt, currentPhase, now) ||
+      (seedLockDecision !== null && seedLockDecision.action !== "none")
+    ) {
       after(async () => {
         await runSync("visit", dbSyncDeps());
       });

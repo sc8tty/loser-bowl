@@ -1,0 +1,1 @@
+ALTER TABLE "sync_state" ADD COLUMN "seeds_corrected_snapshot" jsonb;

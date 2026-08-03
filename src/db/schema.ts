@@ -233,6 +233,7 @@ export const syncState = pgTable(
     seedsLockedAt: timestamp("seeds_locked_at", timestamps),
     seedsSettledAt: timestamp("seeds_settled_at", timestamps),
     seedsSnapshot: jsonb("seeds_snapshot").$type<JsonRecord>(),
+    seedsCorrectedSnapshot: jsonb("seeds_corrected_snapshot").$type<JsonRecord>(),
   },
   (table) => [check("sync_state_single_row", sql`${table.id} = 1`)],
 );

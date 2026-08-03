@@ -33,6 +33,7 @@ function pageMessage(type: "notice" | "error", value: string | undefined): strin
     matchup_window_open: "Correction window is still open; matchup stayed provisional.",
     matchup_confirmed: "Original matchup result confirmed.",
     seed_lock_settled: "Seed lock settled.",
+    seed_lock_under_review: "Seed lock entered commissioner review.",
     seed_lock_window_open: "Correction window is still open; seed lock stayed provisional.",
     seed_lock_confirmed: "Original seed lock confirmed.",
     seed_lock_relocked: "Current seed snapshot settled.",
@@ -42,6 +43,9 @@ function pageMessage(type: "notice" | "error", value: string | undefined): strin
     invalid_winner: "Override winner must be one of the matchup teams.",
     invalid_state: "That action is not available for the current state.",
     missing_lock_time: "That state is missing its lock timestamp.",
+    missing_seed_snapshot: "Seed lock is missing its original snapshot.",
+    missing_corrected_snapshot: "Seed lock is missing its corrected snapshot.",
+    stale_state: "That action was already handled by another request.",
     sync_error: "Admin sync failed. Check the sync log for details.",
     database: "Database is not available for that admin action.",
   };

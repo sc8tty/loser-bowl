@@ -8,6 +8,13 @@
       "when": 1785557379654,
       "tag": "0000_illegal_ulik",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1785717785785,
+      "tag": "0001_conscious_electro",
+      "breakpoints": true
     }
   ]
 }

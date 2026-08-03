@@ -13,7 +13,7 @@ export type FinalMatchupForPhase = {
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-function dateKeyInTimeZone(date: Date, timeZone: string): string {
+export function dateKeyInTimeZone(date: Date, timeZone: string): string {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone,
     year: "numeric",

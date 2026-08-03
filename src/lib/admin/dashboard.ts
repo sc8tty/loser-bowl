@@ -54,6 +54,7 @@ export type AdminSyncState = {
   seedsLockedAt: Date | null;
   seedsSettledAt: Date | null;
   seedsSnapshot: Record<string, unknown> | null;
+  seedsCorrectedSnapshot: Record<string, unknown> | null;
 };
 
 export type AdminDashboardData =
@@ -151,6 +152,7 @@ export async function getAdminDashboardData(): Promise<AdminDashboardData> {
             seedsLockedAt: stateRows[0].seedsLockedAt,
             seedsSettledAt: stateRows[0].seedsSettledAt,
             seedsSnapshot: stateRows[0].seedsSnapshot,
+            seedsCorrectedSnapshot: stateRows[0].seedsCorrectedSnapshot,
           }
         : null,
       matchups: matchupRows.map((matchup) => ({
