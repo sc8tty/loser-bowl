@@ -5,8 +5,22 @@
   **4A** (sync shell), **7** (Race to the Bottom polish — lock countdown, drop-zone/pairing
   edge cases), **11** (Admin page — bcrypt+HMAC auth, sync log, override/settle controls,
   Yahoo health), **8** (Seed lock + bracket creation), **9** (Live compute + provisional
-  advancement + settle/flag flow — see below) — all built, cold-reviewed by fresh-context
-  sessions, findings fixed. 157 tests green. HEAD after Issue 9: `732382f`.
+  advancement + settle/flag flow), **10** (Bracket UI + matchup detail — see below) — all
+  built, cold-reviewed by fresh-context sessions, findings fixed. 166 tests green. HEAD after
+  Issue 10: `e8e7a30`.
+- **Issue 10** is the phase-aware public UI reading Issues 5/8/9's output: `home-page.tsx`
+  now actually branches on `phase()` (race/bracket/champion) — previously `page.tsx` always
+  rendered the Race view regardless of phase, a real gap this closed. New `bracket-view.tsx`
+  (7-slot bracket, status badges, TBD placeholders that don't presuppose a pairing — PRD's
+  re-seeding is highest-vs-lowest among a round's actual winners, not a fixed bracket tree)
+  and `matchup-detail.tsx` (`/matchup/[id]` — team-level stat lines, running tally,
+  plain-language decided-by wording, public override provenance). Read-only, no admin actions
+  exposed, matching PRD's "public link, no viewer auth" requirement. Manually smoke-tested
+  against the live dev server (race view unbroken; `/matchup/r1m1` correctly shows an honest
+  "not created yet" state, since today predates the real seed lock — bracket/champion views
+  couldn't be checked against live data, verified via new component-level fixture tests plus
+  cold review instead). Cold review found no blocking issues; fixed one polish nit (a
+  not-yet-created matchup page showed the raw id like "r1m1" instead of "Round 1 Matchup 1").
 - **Issue 9** bridges the pure comparator/tiebreaker/state-machine engine (Issue 5) to real
   weekly matchup computation: `matchupProcessor.ts` (pure decisions — compute a week via
   `compareWeek`, tiebreak on a true tie, advance a round once every source matchup has an
@@ -104,12 +118,23 @@ ones.
   manual-mode fallback gate. Watch sc8tty@gmail.com for any clarification requests.
 
 ## Next issues to build (all Yahoo-free, no blockers)
-- **10** — Bracket UI + matchup detail (pending/live/provisional/final/under-review/
-  overridden states) — buildable now against fixtures; 9 (its main blocker) is done
-- **12** — Champion state (blocked by 9, 10 — 9 done, needs 10). Note: `phase.ts`'s existing
+- **12** — Champion state (blocked by 9, 10 — both now done). Note: `phase.ts`'s existing
   `phase()` function already derives the champion phase purely from the final matchup's
-  effective winner + status, so this may be mostly a UI/copy task once 10 exists
+  effective winner + status, and Issue 10 already built a champion-phase view in
+  `home-page.tsx` — check what's actually left here before assuming a full build is needed,
+  this may already be substantially covered.
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers)
+- **15** — Playwright smoke in CI: three phases, admin gate (blocked by 7, 10 — both done)
+- **14** — Security verification pass (blocked by 4B, 11 — 11 done, 4B still gated on Yahoo
+  API access). One of the two heavyweight Fable reviews Scott is holding for a dedicated
+  session (the other is Issue 9) — still not ready to trigger, 4B isn't built.
+
+## Remaining Yahoo-free work is thin
+Per PRD's task graph, almost everything buildable without Yahoo access is now done: 1A, 4A,
+5, 6A, 7, 8, 9, 10, 11 are all shipped. What's left Yahoo-free is 12 (champion state, likely
+small given 10's overlap), 13 (ongoing polish), and 15 (Playwright smoke). The remaining
+substantial work (1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31,
+decision date Aug 17) — see External section below.
 
 ## Process notes for next session
 - **Codex worked cleanly this session** (3/3, no hangs) — a reversal of last session's 4
@@ -140,8 +165,13 @@ ones.
   trusting green tests) before committing — e.g. manually verified the re-seeding test table
   against PRD's "highest remaining seed plays lowest" rule for top/bottom/mixed-seed cases.
   Reserve this for real gaps against the project's own stated conventions (PRD's test-first
-  mandate), not for the kind of defensive/speculative findings [[feedback_cold_review_scope]]
-  says to ship as-is.
-- The heavyweight Fable review (Issue 9, the security pass) is still pending — see
-  [[project_build_state]]. Issue 9 now exists and is a strong candidate for it even though
-  the lighter per-issue cold review came back clean, given the stakes.
+  mandate), not for defensive/speculative findings — those should ship as-is, not trigger a
+  follow-up.
+- The heavyweight Fable review (Issue 9, the security pass) is still pending. Issue 9 now
+  exists and is a strong candidate for it even though the lighter per-issue cold review came
+  back clean, given the stakes. The security pass (Issue 14) still isn't ready to trigger —
+  it's blocked by 4B (Yahoo sync engine), which is gated on Yahoo API access.
+- With Issues 7-11 all shipped, remaining Yahoo-free work is thin (see above) — the next
+  session may hit the point where everything left genuinely needs either Yahoo access or a
+  design/copy pass rather than more backend build work. Worth checking in with Scott about
+  priorities rather than defaulting to "keep building the next unblocked issue."
