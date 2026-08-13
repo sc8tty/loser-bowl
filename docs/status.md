@@ -5,9 +5,16 @@
   **4A** (sync shell), **7** (Race to the Bottom polish — lock countdown, drop-zone/pairing
   edge cases), **11** (Admin page — bcrypt+HMAC auth, sync log, override/settle controls,
   Yahoo health), **8** (Seed lock + bracket creation), **9** (Live compute + provisional
-  advancement + settle/flag flow), **10** (Bracket UI + matchup detail — see below) — all
-  built, cold-reviewed by fresh-context sessions, findings fixed. 166 tests green. HEAD after
-  Issue 10: `e8e7a30`.
+  advancement + settle/flag flow), **10** (Bracket UI + matchup detail), **12** (Champion
+  state — see below) — all built, cold-reviewed where warranted, findings fixed. 166 tests
+  green. HEAD after Issue 12: `8852a69`.
+- **Issue 12** turned out to be nearly free: `phase.ts` (Issue 5) already gates the champion
+  phase strictly on the final matchup being `status: "final"` with an effective winner
+  (tested — provisional does NOT trigger it), and Issue 10's `ChampionView` already built the
+  celebration + full bracket. Only real gap: the celebration linked to the full bracket but
+  not to the final matchup's own detail page. Added that link — a small enough change
+  (2-element addition using an already-established `Link` pattern) that it didn't warrant a
+  full Codex build + cold-review cycle; done directly, verified via existing tests + build.
 - **Issue 10** is the phase-aware public UI reading Issues 5/8/9's output: `home-page.tsx`
   now actually branches on `phase()` (race/bracket/champion) — previously `page.tsx` always
   rendered the Race view regardless of phase, a real gap this closed. New `bracket-view.tsx`
@@ -118,23 +125,22 @@ ones.
   manual-mode fallback gate. Watch sc8tty@gmail.com for any clarification requests.
 
 ## Next issues to build (all Yahoo-free, no blockers)
-- **12** — Champion state (blocked by 9, 10 — both now done). Note: `phase.ts`'s existing
-  `phase()` function already derives the champion phase purely from the final matchup's
-  effective winner + status, and Issue 10 already built a champion-phase view in
-  `home-page.tsx` — check what's actually left here before assuming a full build is needed,
-  this may already be substantially covered.
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers)
 - **15** — Playwright smoke in CI: three phases, admin gate (blocked by 7, 10 — both done)
 - **14** — Security verification pass (blocked by 4B, 11 — 11 done, 4B still gated on Yahoo
   API access). One of the two heavyweight Fable reviews Scott is holding for a dedicated
   session (the other is Issue 9) — still not ready to trigger, 4B isn't built.
 
-## Remaining Yahoo-free work is thin
-Per PRD's task graph, almost everything buildable without Yahoo access is now done: 1A, 4A,
-5, 6A, 7, 8, 9, 10, 11 are all shipped. What's left Yahoo-free is 12 (champion state, likely
-small given 10's overlap), 13 (ongoing polish), and 15 (Playwright smoke). The remaining
-substantial work (1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31,
-decision date Aug 17) — see External section below.
+## Remaining Yahoo-free work is essentially just polish now
+Per PRD's task graph, everything substantial buildable without Yahoo access is done: 1A, 4A,
+5, 6A, 7, 8, 9, 10, 11, 12 are all shipped. What's left Yahoo-free is 13 (ongoing copy/tone
+polish — no concrete backlog of specific changes, this is "as issues arise" per PRD) and 15
+(Playwright smoke in CI — a real, scoped remaining task). **Next session should probably ask
+Scott what he wants** rather than default to "keep building the next issue" — the natural
+next unit of work (15) is test infrastructure, not a user-facing feature, and 13 has no
+concrete task list to execute against without design input. The remaining substantial work
+(1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31, decision date Aug 17)
+— see External section below.
 
 ## Process notes for next session
 - **Codex worked cleanly this session** (3/3, no hangs) — a reversal of last session's 4
