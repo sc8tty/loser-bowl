@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Vitest
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright smoke
+        # test:e2e builds again itself (next build --webpack, required for a
+        # stable `next start` under Playwright's webServer) — the separate
+        # Build step above still earns its keep by catching a Turbopack-only
+        # build failure with a clearer, earlier-failing CI step name.
+        run: npm run test:e2e

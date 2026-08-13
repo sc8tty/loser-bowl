@@ -11,6 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest",
+    "test:e2e": "next build --webpack && playwright test",
     "seed:fixture": "node --experimental-strip-types scripts/seed-fixture.ts",
     "import:stats": "node --experimental-strip-types scripts/import-stats.ts",
     "import:standings": "node --experimental-strip-types scripts/import-standings.ts",
@@ -27,6 +28,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",

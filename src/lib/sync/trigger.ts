@@ -23,6 +23,10 @@ import {
   type PublicStatCategory,
   type PublicTeamRef,
 } from "@/lib/public/matchups";
+import {
+  getE2eLeagueData,
+  getE2eMatchupDetailData,
+} from "@/lib/testing/e2eFixtures";
 import { runSync } from "./engine";
 import { isStale } from "./freshness";
 import { dbSyncDeps } from "./lock";
@@ -226,7 +230,16 @@ function maybeScheduleVisitSync(input: {
  * when the data is stale for the current phase, schedules a post-response
  * sync via after() — never blocking the response (PRD sync section).
  */
-export async function getLeagueData(): Promise<LeagueData> {
+export async function getLeagueData(
+  e2eScenarioHeader?: string | null,
+): Promise<LeagueData> {
+  // E2E fixture mode keeps smoke tests off Neon; inert unless E2E_TEST_MODE is true.
+  const e2eData = getE2eLeagueData(e2eScenarioHeader);
+
+  if (e2eData !== null) {
+    return e2eData;
+  }
+
   const now = new Date();
 
   try {
@@ -298,11 +311,19 @@ export async function getLeagueData(): Promise<LeagueData> {
 
 export async function getMatchupDetailData(
   matchupId: string,
+  e2eScenarioHeader?: string | null,
 ): Promise<MatchupDetailData> {
   const id = toPublicMatchupId(matchupId);
 
   if (id === null) {
     return { status: "unknown_matchup", matchupId };
+  }
+
+  // E2E fixture mode keeps smoke tests off Neon; inert unless E2E_TEST_MODE is true.
+  const e2eData = getE2eMatchupDetailData(id, e2eScenarioHeader);
+
+  if (e2eData !== null) {
+    return e2eData;
   }
 
   const now = new Date();
