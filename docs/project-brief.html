@@ -1,0 +1,682 @@
+<title>Lander's League Loser Bowl — Project Brief</title>
+<style>
+  :root {
+    --paper: #f3f4f1;
+    --paper-raised: #fbfbfa;
+    --ink: #14181c;
+    --ink-soft: #2b3138;
+    --muted: #5b6570;
+    --muted-2: #838c94;
+    --line: #d7dad4;
+    --line-soft: #e5e7e2;
+    --gold: #a97615;
+    --gold-ink: #6b4c0f;
+    --gold-tint: #f3e6c8;
+    --rose: #96263a;
+    --rose-tint: #f3dfe2;
+    --green: #3d6b3f;
+    --green-tint: #dfe9df;
+    --code-bg: #eceeea;
+    --shadow: 0 1px 2px rgba(20, 24, 28, 0.06), 0 8px 24px rgba(20, 24, 28, 0.05);
+    --radius: 3px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15181b;
+      --paper-raised: #1c2024;
+      --ink: #eceeea;
+      --ink-soft: #cdd2d6;
+      --muted: #97a0a8;
+      --muted-2: #6e777f;
+      --line: #2c3136;
+      --line-soft: #23272b;
+      --gold: #d9a544;
+      --gold-ink: #f0d698;
+      --gold-tint: #35301f;
+      --rose: #e07487;
+      --rose-tint: #3a2229;
+      --green: #7fb583;
+      --green-tint: #1f2b20;
+      --code-bg: #202428;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #15181b;
+    --paper-raised: #1c2024;
+    --ink: #eceeea;
+    --ink-soft: #cdd2d6;
+    --muted: #97a0a8;
+    --muted-2: #6e777f;
+    --line: #2c3136;
+    --line-soft: #23272b;
+    --gold: #d9a544;
+    --gold-ink: #f0d698;
+    --gold-tint: #35301f;
+    --rose: #e07487;
+    --rose-tint: #3a2229;
+    --green: #7fb583;
+    --green-tint: #1f2b20;
+    --code-bg: #202428;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  a { color: var(--gold-ink); text-decoration-color: color-mix(in srgb, var(--gold-ink) 40%, transparent); text-underline-offset: 2px; }
+  a:hover { text-decoration-color: var(--gold-ink); }
+
+  .eyebrow {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  h1, h2, h3 {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .shell {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    gap: 56px;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 48px 24px 96px;
+    justify-content: center;
+  }
+
+  @media (max-width: 860px) {
+    .shell { grid-template-columns: minmax(0, 1fr); padding: 24px 18px 64px; gap: 28px; }
+    nav.toc { display: none; }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 40px;
+    align-self: start;
+    font-size: 13.5px;
+  }
+
+  nav.toc .toc-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+    margin-bottom: 12px;
+  }
+
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    border-left: 1px solid var(--line);
+  }
+
+  nav.toc a {
+    display: block;
+    padding: 2px 0 2px 14px;
+    color: var(--muted);
+    text-decoration: none;
+    border-left: 2px solid transparent;
+    margin-left: -1px;
+  }
+
+  nav.toc a:hover { color: var(--ink); border-left-color: var(--muted-2); }
+
+  main { min-width: 0; }
+
+  header.masthead {
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  header.masthead .kicker {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 18px;
+  }
+
+  header.masthead .kicker .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--gold);
+  }
+
+  header.masthead h1 {
+    font-size: 40px;
+    line-height: 1.08;
+    margin: 0 0 6px;
+  }
+
+  header.masthead .tagline {
+    font-size: 17px;
+    color: var(--muted);
+    max-width: 60ch;
+    margin: 0 0 24px;
+  }
+
+  .chiprow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+
+  .chip .chip-label { color: var(--muted-2); }
+  .chip.chip-gold { border-color: color-mix(in srgb, var(--gold) 45%, var(--line)); background: var(--gold-tint); color: var(--gold-ink); }
+
+  section { margin-bottom: 56px; }
+  section:last-of-type { margin-bottom: 0; }
+
+  section > .eyebrow { margin-bottom: 8px; }
+
+  section > h2 {
+    font-size: 25px;
+    margin: 0 0 14px;
+  }
+
+  section > p.lede {
+    font-size: 15.5px;
+    color: var(--ink-soft);
+    max-width: 68ch;
+    margin: 0 0 20px;
+  }
+
+  h3.sub {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 28px 0 10px;
+    color: var(--ink);
+  }
+
+  p, li { font-size: 14.75px; color: var(--ink-soft); }
+  p { max-width: 68ch; margin: 0 0 14px; }
+  p:last-child { margin-bottom: 0; }
+
+  ul.plain, ol.plain { margin: 0 0 14px; padding-left: 20px; }
+  ul.plain li, ol.plain li { margin-bottom: 6px; }
+
+  code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", Menlo, Consolas, monospace;
+    font-size: 0.87em;
+    background: var(--code-bg);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    overflow-x: auto;
+    margin: 0 0 16px;
+  }
+  pre code { background: none; padding: 0; font-size: 12.5px; line-height: 1.55; }
+
+  /* --- phase timeline --- */
+  .phases {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin: 22px 0 8px;
+  }
+  @media (max-width: 640px) { .phases { grid-template-columns: 1fr; } }
+
+  .phase-card {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+    padding: 16px;
+    position: relative;
+  }
+  .phase-card .phase-num {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.06em;
+    color: var(--muted-2); text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .phase-card h4 { margin: 0 0 6px; font-size: 15.5px; font-weight: 800; color: var(--ink); }
+  .phase-card p { font-size: 13px; margin: 0; color: var(--muted); }
+  .phase-arrow {
+    display: none;
+  }
+  @media (min-width: 641px) {
+    .phases { align-items: stretch; }
+  }
+
+  /* --- mock UI cards, built from real fixture data --- */
+  .mock {
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    background: var(--paper-raised);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    margin: 18px 0 24px;
+  }
+  .mock .mock-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 7px 12px;
+    background: var(--code-bg);
+    border-bottom: 1px solid var(--line);
+    font-size: 10.5px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+  }
+  .mock .mock-body { padding: 16px; }
+
+  table.standings { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.standings th {
+    text-align: left; font-weight: 700; font-size: 10.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--muted-2);
+    padding: 0 8px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  table.standings td { padding: 7px 8px 7px 0; border-bottom: 1px solid var(--line-soft); color: var(--ink-soft); }
+  table.standings tr:last-child td { border-bottom: none; }
+  table.standings td.rank { font-family: ui-monospace, monospace; color: var(--muted); width: 26px; }
+  table.standings td.team { font-weight: 600; color: var(--ink); }
+  table.standings td.rec { font-family: ui-monospace, monospace; color: var(--muted); }
+  table.standings tr.dropzone td { background: color-mix(in srgb, var(--rose-tint) 70%, transparent); }
+  .seedpill {
+    display: inline-block; font-family: ui-monospace, monospace; font-size: 10.5px;
+    padding: 1px 6px; border: 1px solid color-mix(in srgb, var(--rose) 35%, var(--line));
+    color: var(--rose); border-radius: 3px;
+  }
+
+  .boxscore { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .boxscore th {
+    text-align: left; font-weight: 700; font-size: 10.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; color: var(--muted-2);
+    padding: 0 10px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  .boxscore th.num, .boxscore td.num { text-align: right; }
+  .boxscore td { padding: 6px 10px 6px 0; border-bottom: 1px solid var(--line-soft); font-family: ui-monospace, monospace; color: var(--ink-soft); }
+  .boxscore tr:last-child td { border-bottom: none; }
+  .boxscore td.win { color: var(--green); font-weight: 700; }
+  .boxscore td.cat { font-family: -apple-system, sans-serif; font-weight: 600; color: var(--ink); }
+
+  .statusbadge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    padding: 3px 8px; border-radius: 3px; border: 1px solid transparent;
+  }
+  .statusbadge.final { background: var(--green-tint); color: var(--green); border-color: color-mix(in srgb, var(--green) 30%, transparent); }
+  .statusbadge.review { background: var(--rose-tint); color: var(--rose); border-color: color-mix(in srgb, var(--rose) 30%, transparent); }
+
+  .review-banner {
+    margin-top: 12px;
+    padding: 10px 12px;
+    background: var(--rose-tint);
+    border: 1px solid color-mix(in srgb, var(--rose) 30%, transparent);
+    border-radius: var(--radius);
+    font-size: 12.5px;
+    color: var(--rose);
+  }
+
+  /* --- architecture pattern diagram --- */
+  .pattern {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: stretch;
+    margin: 20px 0 8px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  @media (max-width: 640px) { .pattern { grid-template-columns: 1fr; } }
+  .pattern .pcol { padding: 16px; }
+  .pattern .pcol.pure { background: var(--gold-tint); }
+  .pattern .pcol.impure { background: var(--paper-raised); }
+  .pattern .pdivider {
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px; color: var(--muted-2); font-size: 18px; background: var(--paper);
+    border-left: 1px solid var(--line); border-right: 1px solid var(--line);
+  }
+  @media (max-width: 640px) { .pattern .pdivider { border: none; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 6px; } }
+  .pattern h4 { margin: 0 0 4px; font-size: 13px; font-weight: 800; }
+  .pattern .pcol.pure h4 { color: var(--gold-ink); }
+  .pattern .pcol.impure h4 { color: var(--ink); }
+  .pattern p { font-size: 12.5px; margin: 0 0 8px; }
+  .pattern code { font-size: 11px; }
+
+  /* --- schema table --- */
+  table.schema { width: 100%; border-collapse: collapse; font-size: 13px; margin: 8px 0 20px; }
+  table.schema th {
+    text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--muted-2); padding: 0 12px 8px 0; border-bottom: 1px solid var(--line);
+  }
+  table.schema td { padding: 9px 12px 9px 0; border-bottom: 1px solid var(--line-soft); vertical-align: top; color: var(--ink-soft); }
+  table.schema tr:last-child td { border-bottom: none; }
+  table.schema td.tname code { white-space: nowrap; }
+
+  /* --- status list --- */
+  .status-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin: 8px 0 8px;
+  }
+  @media (max-width: 640px) { .status-grid { grid-template-columns: 1fr; gap: 20px; } }
+  .status-col .status-head {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .status-col .status-head .sw { width: 8px; height: 8px; border-radius: 50%; }
+  .status-col.shipped .status-head { color: var(--green); }
+  .status-col.shipped .sw { background: var(--green); }
+  .status-col.blocked .status-head { color: var(--muted); }
+  .status-col.blocked .sw { background: var(--muted-2); }
+  ul.status-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  ul.status-list li {
+    font-size: 13px; padding: 7px 10px; background: var(--paper-raised); border: 1px solid var(--line);
+    border-radius: var(--radius); color: var(--ink-soft);
+  }
+  ul.status-list li .num { font-family: ui-monospace, monospace; color: var(--muted-2); margin-right: 6px; }
+
+  .callout {
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--gold);
+    background: var(--paper-raised);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    padding: 16px 18px;
+    margin: 20px 0;
+  }
+  .callout.warn { border-left-color: var(--rose); }
+  .callout h4 { margin: 0 0 8px; font-size: 13.5px; font-weight: 800; color: var(--ink); }
+  .callout p, .callout li { font-size: 13px; }
+  .callout ul.plain { margin-bottom: 0; }
+
+  .kv-grid {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 6px 20px;
+    font-size: 13.5px;
+    margin: 8px 0 20px;
+  }
+  .kv-grid dt { color: var(--muted-2); font-weight: 600; }
+  .kv-grid dd { margin: 0; color: var(--ink-soft); }
+
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--muted-2);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    section { scroll-margin-top: 24px; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="toc" aria-label="Table of contents">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#product">Product &amp; UX</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#security">Security &amp; testing</a></li>
+      <li><a href="#status">Build status</a></li>
+      <li><a href="#reviewers">For reviewers</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <div class="kicker">
+        <span class="dot"></span>
+        <span class="eyebrow">Project brief · for code review</span>
+      </div>
+      <h1>Lander's League Loser Bowl</h1>
+      <p class="tagline">A toilet-bowl consolation bracket for the 8 teams that miss the playoffs in a 16-team Yahoo fantasy baseball league — built because Yahoo has no support for this format at all.</p>
+      <div class="chiprow">
+        <span class="chip"><span class="chip-label">Stack</span> Next.js 16 · Drizzle · Neon · Tailwind</span>
+        <span class="chip"><span class="chip-label">Repo</span> sc8tty/loser-bowl</span>
+        <span class="chip"><span class="chip-label">Tests</span> 166 vitest · 4 Playwright</span>
+        <span class="chip chip-gold"><span class="chip-label">Locks</span> Sun Sep 6, 2026</span>
+      </div>
+    </header>
+
+    <section id="overview">
+      <div class="eyebrow">01 — Overview</div>
+      <h2>Why this exists</h2>
+      <p class="lede">Scott runs a 16-team H2H-categories Yahoo league with an 8-team playoff. The 8 teams who miss it have nothing to play for down the stretch — and Yahoo doesn't offer a consolation-bracket format at all, in any configuration. This is a small, public, read-only site the group checks from the chat: a toilet-bowl bracket for last place, $50 winner-take-all, money handled off-site.</p>
+      <div class="kv-grid">
+        <dt>Format</dt><dd>Seeds 9–16 (worst 8 of 16 teams), single-elim, 3 rounds, re-seeded each round</dd>
+        <dt>Season data</dt><dd>Yahoo Fantasy API when access is approved; a fully-parallel manual CSV import path otherwise — the site never knows which one it's reading from</dd>
+        <dt>Audience</dt><dd>Public link, no login, no search indexing — a group-chat product, not a public product</dd>
+        <dt>Built by</dt><dd>Claude Code (planning, architecture, review) + Codex CLI (delegated implementation), directed by Scott — worth knowing going in, since it explains some of the code's density of comments-explaining-decisions and the paper trail in <code>docs/</code></dd>
+      </div>
+    </section>
+
+    <section id="product">
+      <div class="eyebrow">02 — Product &amp; UX</div>
+      <h2>Three phases, one page</h2>
+      <p class="lede">The home page is phase-aware and shows exactly one of three views, decided purely by date and bracket state — no separate URLs to keep in sync, no client-side routing.</p>
+
+      <div class="phases">
+        <div class="phase-card">
+          <div class="phase-num">Now → Sep 6</div>
+          <h4>Race to the Bottom</h4>
+          <p>Standings with the 9–16 drop zone highlighted, a lock countdown, and projected Round 1 pairings that update as the standings shift.</p>
+        </div>
+        <div class="phase-card">
+          <div class="phase-num">Sep 7 → 27</div>
+          <h4>Bracket</h4>
+          <p>Live category tallies per matchup, status badges (pending / live / provisional / final / under review), and a public "commissioner review" banner if a stat correction is in flight.</p>
+        </div>
+        <div class="phase-card">
+          <div class="phase-num">Final settled</div>
+          <h4>Champion</h4>
+          <p>A celebration takeover — the one deliberate flourish in an otherwise restrained UI — linking through to the deciding matchup and the full bracket.</p>
+        </div>
+      </div>
+
+      <h3 class="sub">Current standings — real data, live right now</h3>
+      <div class="mock">
+        <div class="mock-bar"><span>Race to the Bottom</span><span>The Drop Zone</span></div>
+        <div class="mock-body">
+          <table class="standings">
+            <thead><tr><th>Rank</th><th>Team</th><th>Record</th><th>Bowl seed</th></tr></thead>
+            <tbody>
+              <tr><td class="rank">7</td><td class="team">Popup Practitioners</td><td class="rec">106–114–0</td><td></td></tr>
+              <tr><td class="rank">8</td><td class="team">Box Score Poets</td><td class="rec">102–118–0</td><td></td></tr>
+              <tr class="dropzone"><td class="rank">9</td><td class="team">Collar Strategists</td><td class="rec">99–121–0</td><td><span class="seedpill">seed 9</span></td></tr>
+              <tr class="dropzone"><td class="rank">10</td><td class="team">Late Inning Laundry</td><td class="rec">96–124–0</td><td><span class="seedpill">seed 10</span></td></tr>
+              <tr class="dropzone"><td class="rank">16</td><td class="team">Last Pick Legends</td><td class="rec">77–143–0</td><td><span class="seedpill">seed 16</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <h3 class="sub">Matchup detail — the weekly head-to-head</h3>
+      <p>Every matchup gets its own page: full category box score, running tally, a plain-language "decided by" line (categories / head-to-head tiebreak / season category wins / higher seed), and — if a result changes after the fact — a public explanation, not a silently-flipped winner.</p>
+      <div class="mock">
+        <div class="mock-bar"><span>Semifinal 1 · Week 24</span><span class="statusbadge review">Under review</span></div>
+        <div class="mock-body">
+          <table class="boxscore">
+            <thead><tr><th>Category</th><th class="num">E2E Team 16</th><th class="num">E2E Team 10</th><th>Winner</th></tr></thead>
+            <tbody>
+              <tr><td class="cat">HR</td><td class="num win">28</td><td class="num">19</td><td class="win">E2E Team 16</td></tr>
+              <tr><td class="cat">AVG</td><td class="num">.286</td><td class="num win">.239</td><td class="win">E2E Team 10</td></tr>
+              <tr><td class="cat">ERA <span style="font-family:-apple-system,sans-serif;font-weight:600;font-size:9.5px;background:var(--gold-tint);color:var(--gold-ink);padding:1px 5px;border-radius:2px;margin-left:4px;">IP min</span></td><td class="num">4.86</td><td class="num win">2.72</td><td class="win">E2E Team 10</td></tr>
+              <tr><td class="cat">WHIP</td><td class="num">1.39</td><td class="num win">1.08</td><td class="win">E2E Team 10</td></tr>
+            </tbody>
+          </table>
+          <div class="review-banner">Commissioner review: a stat correction is being reviewed, so this result and its downstream branch are paused. Every other branch keeps computing normally.</div>
+        </div>
+      </div>
+
+      <h3 class="sub">Admin — one page, Scott only</h3>
+      <p>Password-gated, no viewer auth anywhere else: sync status log with a manual re-sync trigger, matchup result overrides (a note is required and shown publicly), settle/confirm controls for flagged results, and Yahoo connection health.</p>
+    </section>
+
+    <section id="architecture">
+      <div class="eyebrow">03 — Architecture</div>
+      <h2>The core pattern: pure decisions, guarded writes</h2>
+      <p class="lede">Every outcome-deciding piece of logic — the category comparator, the tiebreaker chain, re-seeding, the round/seed-lock state machine — is a pure function with no I/O, unit-tested against fixtures. A thin layer of DB-bound "executors" consumes their output and applies it transactionally, with an atomic <code>WHERE status = '&lt;expected&gt;' … RETURNING</code> guard on every write, so two concurrent triggers (a page visit and a cron tick, say) can't double-advance a round or double-settle a result.</p>
+
+      <div class="pattern">
+        <div class="pcol pure">
+          <h4>Pure — <code>src/lib/bracket/*</code></h4>
+          <p>Given state + <code>now</code>, decide what should happen. No database, no side effects, fully unit-tested.</p>
+          <code>compareWeek()</code><br/>
+          <code>applyTiebreakers()</code><br/>
+          <code>nextRoundPairings()</code><br/>
+          <code>transitionMatchupState()</code>
+        </div>
+        <div class="pdivider">→</div>
+        <div class="pcol impure">
+          <h4>DB-bound — <code>src/lib/sync/*</code></h4>
+          <p>Take a pure decision, apply it in one transaction with an atomic per-status guard.</p>
+          <code>seedLock.ts</code><br/>
+          <code>matchupCompute.ts</code>
+        </div>
+      </div>
+
+      <h3 class="sub">Schema — 8 tables</h3>
+      <table class="schema">
+        <thead><tr><th>Table</th><th>Purpose</th></tr></thead>
+        <tbody>
+          <tr><td class="tname"><code>teams</code></td><td>16 rows, internal stable id as PK; <code>yahoo_team_key</code> nullable so Yahoo is never load-bearing for identity</td></tr>
+          <tr><td class="tname"><code>stat_lines</code></td><td>Team × week raw stats, tagged <code>source: yahoo | manual | import</code> — the seam that makes Yahoo optional</td></tr>
+          <tr><td class="tname"><code>matchups</code></td><td>7 rows once seeds lock (r1×4, semis×2, final); status, computed result, override + public provenance</td></tr>
+          <tr><td class="tname"><code>regular_season_matchups</code></td><td>Tiebreaker #1 source (head-to-head record) — Yahoo's own result is canonical, not ours</td></tr>
+          <tr><td class="tname"><code>league_settings</code></td><td>Stat categories, sort order, innings-minimum rule — versioned, sourced from Yahoo or a checked-in seed</td></tr>
+          <tr><td class="tname"><code>sync_state</code></td><td>Single-row: sync lock, backoff, seed-lock status + snapshot for the correction-window review flow</td></tr>
+          <tr><td class="tname"><code>sync_runs</code></td><td>Audit log: trigger, status, timing, error — what the admin dashboard's sync log reads</td></tr>
+          <tr><td class="tname"><code>oauth_tokens</code></td><td>Single-row Yahoo OAuth token, rotated on refresh</td></tr>
+        </tbody>
+      </table>
+
+      <h3 class="sub">Sync model</h3>
+      <p>No cron-only architecture — data pages are <code>force-dynamic</code>, and a visit that finds stale data schedules a sync via Next's <code>after()</code> and still renders instantly from Postgres. An atomic lock claim (<code>UPDATE … WHERE lock_expires_at IS NULL OR &lt; now()</code>) means two simultaneous visits produce exactly one sync. Freshness windows scale with the phase: 30 min during bracket weeks, 6 h during the race, never once a champion is settled. A daily Vercel cron is the backstop.</p>
+      <p>Round finalization is provisional-first: a Sunday-night close computes a winner immediately and advances the bracket, then a 24-hour correction window re-verifies before marking anything <code>final</code>. If a re-verify flips the winner, the affected branch freezes and goes <code>under_review</code> — <strong>results never silently flip</strong>; a commissioner has to resolve it.</p>
+    </section>
+
+    <section id="security">
+      <div class="eyebrow">04 — Security &amp; testing</div>
+      <h2>What's guarded, what's tested</h2>
+
+      <h3 class="sub">Admin auth</h3>
+      <ul class="plain">
+        <li>bcrypt password verify, HMAC-signed session token, timing-safe comparison, real expiry check</li>
+        <li><code>HttpOnly; Secure; SameSite=Strict</code> cookie, 7-day expiry</li>
+        <li>CSRF on every mutation route: SameSite=Strict + Origin-header check, belt-and-suspenders</li>
+        <li>Per-IP login throttle — <em>known limitation:</em> in-memory, won't survive across Vercel serverless instances; accepted tradeoff for a single-admin app where bcrypt is the real defense</li>
+      </ul>
+
+      <h3 class="sub">Test coverage</h3>
+      <p><strong>166 vitest tests</strong> — fixture-driven, one file per pure module, plus a single large "dress rehearsal" integration test that drives a full fake 3-week bracket end to end: a head-to-head tiebreak, a stat-correction flip that freezes one branch while the rest keep computing, an admin override, and a champion.</p>
+      <p><strong>4 Playwright smoke tests</strong> in CI (three phases + the admin gate) run against zero real database — an env-gated fixture bypass (<code>E2E_TEST_MODE</code> + a scenario header, double-checked before any DB call is ever reached) lets the app render canned data instead, so CI needs no Neon branch and no new secrets.</p>
+    </section>
+
+    <section id="status">
+      <div class="eyebrow">05 — Build status</div>
+      <h2>Where things stand</h2>
+      <p class="lede">Everything buildable without Yahoo API access is shipped. What's left is either gated on that access or needs product/design input rather than more engineering.</p>
+
+      <div class="status-grid">
+        <div class="status-col shipped">
+          <div class="status-head"><span class="sw"></span> Shipped &amp; cold-reviewed</div>
+          <ul class="status-list">
+            <li><span class="num">1A</span>Tracer bullet — DB → page, deployed</li>
+            <li><span class="num">4A</span>Sync shell — lock, backoff, freshness</li>
+            <li><span class="num">5</span>Bracket engine — comparator, tiebreakers, state machine</li>
+            <li><span class="num">6A</span>CSV import scripts — the Yahoo-free data path</li>
+            <li><span class="num">7</span>Race to the Bottom page</li>
+            <li><span class="num">8</span>Seed lock + bracket creation</li>
+            <li><span class="num">9</span>Live compute + provisional advancement</li>
+            <li><span class="num">10</span>Bracket UI + matchup detail</li>
+            <li><span class="num">11</span>Admin page</li>
+            <li><span class="num">12</span>Champion state</li>
+            <li><span class="num">15</span>Playwright smoke in CI</li>
+          </ul>
+        </div>
+        <div class="status-col blocked">
+          <div class="status-head"><span class="sw"></span> Gated or pending</div>
+          <ul class="status-list">
+            <li><span class="num">1B</span>Yahoo OAuth + live sync — needs API access</li>
+            <li><span class="num">3</span>2025-league spike — needs API access</li>
+            <li><span class="num">4B</span>Yahoo sync engine — needs API access</li>
+            <li><span class="num">6B</span>Yahoo season backfill — needs API access</li>
+            <li><span class="num">13</span>Copy / tone / favicon polish — needs design input</li>
+            <li><span class="num">14</span>Security verification pass — blocked on 4B</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="callout warn">
+        <h4>Known issue: production domain is down</h4>
+        <p><code>loserbowl.landermedia.com</code> currently 404s at Vercel's edge, before the app is even invoked. The deployment itself is healthy and the alias record is correctly configured — this reproduces on a non-default <code>.vercel.app</code> alias too, and looks like a genuine Vercel platform bug rather than a config mistake. Separately, Vercel Deployment Protection is still on and needs disabling for launch — the product spec is a public, no-login link. Neither is a code issue; both need dashboard access to chase further.</p>
+      </div>
+
+      <p><strong>External:</strong> Yahoo Fantasy API access was requested Jul 31, 2026; decision date is Aug 17. If it doesn't land in time, the manual CSV import path (already built and Yahoo-free) is the production fallback — the app never knows which source it's reading from.</p>
+    </section>
+
+    <section id="reviewers">
+      <div class="eyebrow">06 — For reviewers</div>
+      <h2>If you're reviewing this</h2>
+      <div class="callout">
+        <h4>Where a code review would add the most value</h4>
+        <ul class="plain">
+          <li>The <strong>live-compute logic</strong> (<code>matchupCompute.ts</code> / <code>matchupProcessor.ts</code>, Issue 9) is the biggest single piece of business logic and the one that decides real money — it's had a normal review pass, but not yet the deeper adversarial pass planned separately.</li>
+          <li>The <strong>security pass</strong> (Issue 14 — probing the checklist in the security section against the real deployment) hasn't happened yet at all; it's blocked on Yahoo OAuth landing first.</li>
+          <li>The pure/impure split and the atomic-guard pattern in <code>src/lib/sync/seedLock.ts</code> and <code>matchupCompute.ts</code> are the architectural core — worth checking whether the concurrency guards actually hold up under real load, not just the fixture scenarios the tests cover.</li>
+        </ul>
+      </div>
+      <p>Full spec is in <code>PRD.md</code> at the repo root (interview-settled, treated as the source of truth — if you disagree with a decision in there, that's worth a conversation before a PR). Session-by-session build history and open questions are in <code>docs/status.md</code>.</p>
+    </section>
+
+    <footer>
+      <span>github.com/sc8tty/loser-bowl</span>
+      <span>Generated Aug 4, 2026</span>
+    </footer>
+  </main>
+</div>
