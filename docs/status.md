@@ -159,6 +159,22 @@ point, not a "find the next thing to build" point. The remaining substantial wor
 (1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31, decision date Aug 17)
 — see External section below.
 
+## End-of-session preview walkthrough (no code changes)
+Scott asked to see what's built. Walked through the Race view (real DB data), then the
+bracket/champion/matchup-detail views using the Issue 15 fixture bypass
+(`E2E_TEST_MODE=true` + `x-e2e-scenario` header, driven via browser `fetch()` +
+`document.write()` since it's a request-header gate, not a URL param) — no persistent
+shareable link exists for this, it required me driving the browser live. Scott asked for a
+link to revisit it later; discussed but did NOT build a temporary `?e2e=<scenario>` URL
+query-param toggle as a lighter-weight alternative to the header gate for his own
+click-through access — **if picked up next session**, keep it clearly temporary/removable
+(same production-safety bar as the header gate: must never work when `E2E_TEST_MODE` isn't
+also set) and remove it once he's seen what he needs, don't let it become permanent surface
+area. A `.claude/launch.json` second entry (`loser-bowl-dev-e2e-preview`, sets
+`E2E_TEST_MODE=true` via `env`) was added and cleanly reverted twice this session for the
+screenshot walkthrough — that pattern is reusable if doing this again, but isn't currently
+in the committed file.
+
 ## Process notes for next session
 - **Codex worked cleanly this session** (3/3, no hangs) — a reversal of last session's 4
   hangs. Two things changed: avoided `-c model_reasoning_effort` (per last session's
