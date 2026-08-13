@@ -1,4 +1,4 @@
-# Status (as of 2026-08-02, end of session)
+# Status (as of 2026-08-04, end of session)
 
 ## Done — committed, on `main`, not yet deployed/verified live
 - **1A** (tracer bullet), **5** (bracket engine), **6A** (CSV import scripts),
@@ -6,8 +6,28 @@
   edge cases), **11** (Admin page — bcrypt+HMAC auth, sync log, override/settle controls,
   Yahoo health), **8** (Seed lock + bracket creation), **9** (Live compute + provisional
   advancement + settle/flag flow), **10** (Bracket UI + matchup detail), **12** (Champion
-  state — see below) — all built, cold-reviewed where warranted, findings fixed. 166 tests
-  green. HEAD after Issue 12: `8852a69`.
+  state), **15** (Playwright smoke in CI — see below) — all built, cold-reviewed where
+  warranted, findings fixed. 166 vitest + 4 Playwright tests green. HEAD after Issue 15:
+  `7fcf28e`.
+- **Issue 15** adds GitHub Actions CI (Vitest + build + Playwright) via an env-gated fixture
+  bypass (`E2E_TEST_MODE=true` + `x-e2e-scenario` header) so E2E tests need zero real
+  database — no Neon branch, no new secrets. Fixture phases are derived through the real
+  `phase()` function, not hardcoded. **Codex's sandbox could not actually execute the
+  Playwright suite** (`listen EPERM` — the same port-binding restriction seen in Issues 7 and
+  11, now confirmed a third time specifically for Playwright/webServer). Running it myself
+  found two real bugs Codex never could have caught: (1) `next start` reads the real
+  `.env.local` from disk regardless of env vars Playwright injects, clobbering the test admin
+  password with the local-dev one — fixed via `NODE_ENV=test`, which Next.js's own env loader
+  treats as a documented signal to skip `.env.local`; (2) several ambiguous Playwright
+  locators needed `level`/`exact`/`.first()` disambiguation. Cold review flagged a
+  defense-in-depth gap (nothing stopped `E2E_TEST_MODE` from silently activating on a real
+  deployment) — added a runtime guard, but the obvious fix (checking `NODE_ENV ===
+  "production"`) is actually **wrong**: `next start` forces `NODE_ENV` to `"production"`
+  internally regardless of what's passed to it (confirmed — this broke the E2E run itself
+  when tried). Used Vercel's own `VERCEL` env var instead (only ever set on a real Vercel
+  deployment). **This whole episode is a strong case study for why "actually run it yourself"
+  matters** — a Codex build that passes `npm test`/`npm run build`/lint clean can still ship a
+  fundamentally broken E2E suite if nobody executes it end-to-end.
 - **Issue 12** turned out to be nearly free: `phase.ts` (Issue 5) already gates the champion
   phase strictly on the final matchup being `status: "final"` with an effective winner
   (tested — provisional does NOT trigger it), and Issue 10's `ChampionView` already built the
@@ -124,21 +144,18 @@ ones.
   acknowledged same day: review takes 1–2 weeks → expect ~Aug 7–14, inside the **Aug 17**
   manual-mode fallback gate. Watch sc8tty@gmail.com for any clarification requests.
 
-## Next issues to build (all Yahoo-free, no blockers)
-- **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers)
-- **15** — Playwright smoke in CI: three phases, admin gate (blocked by 7, 10 — both done)
+## Next issues to build
+- **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
+  concrete task list without design input from Scott)
 - **14** — Security verification pass (blocked by 4B, 11 — 11 done, 4B still gated on Yahoo
   API access). One of the two heavyweight Fable reviews Scott is holding for a dedicated
   session (the other is Issue 9) — still not ready to trigger, 4B isn't built.
 
-## Remaining Yahoo-free work is essentially just polish now
-Per PRD's task graph, everything substantial buildable without Yahoo access is done: 1A, 4A,
-5, 6A, 7, 8, 9, 10, 11, 12 are all shipped. What's left Yahoo-free is 13 (ongoing copy/tone
-polish — no concrete backlog of specific changes, this is "as issues arise" per PRD) and 15
-(Playwright smoke in CI — a real, scoped remaining task). **Next session should probably ask
-Scott what he wants** rather than default to "keep building the next issue" — the natural
-next unit of work (15) is test infrastructure, not a user-facing feature, and 13 has no
-concrete task list to execute against without design input. The remaining substantial work
+## The Yahoo-free build queue is now fully exhausted
+Per PRD's task graph, every issue buildable without Yahoo access is done: 1A, 4A, 5, 6A, 7, 8,
+9, 10, 11, 12, 15 are all shipped. All that's left Yahoo-free is 13, which has no concrete
+task list without design/copy input from Scott — this is genuinely a "check in with Scott"
+point, not a "find the next thing to build" point. The remaining substantial work
 (1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31, decision date Aug 17)
 — see External section below.
 
