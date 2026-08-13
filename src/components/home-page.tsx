@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { LEAGUE_CONFIG } from "@/config/league";
 import { BracketView } from "@/components/bracket-view";
 import { ProjectedPairings } from "@/components/projected-pairings";
@@ -179,12 +181,20 @@ function ChampionView({
                 Final settled
               </span>
             </div>
-            <a
-              href="#full-bracket"
-              className="mt-6 inline-flex border border-white px-4 py-3 text-sm font-black uppercase text-white hover:border-amber-300 hover:text-amber-300"
-            >
-              View the full bracket
-            </a>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="/matchup/final"
+                className="inline-flex border border-amber-300 bg-amber-300 px-4 py-3 text-sm font-black uppercase text-stone-950 hover:bg-amber-200"
+              >
+                View the final matchup
+              </Link>
+              <a
+                href="#full-bracket"
+                className="inline-flex border border-white px-4 py-3 text-sm font-black uppercase text-white hover:border-amber-300 hover:text-amber-300"
+              >
+                View the full bracket
+              </a>
+            </div>
           </div>
         </div>
       </section>
