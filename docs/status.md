@@ -151,7 +151,8 @@ ones.
   Fantasy Sports (or any) scope checkbox rendered at all, not just cropped out. Consistent with
   the access-review application still being pending. No response to that application as of
   Aug 17 (2.5 weeks, past their own 1-2 week estimate and at the PRD's manual-mode decision
-  date) — Scott is sending a follow-up today. Watch sc8tty@gmail.com for a reply.
+  date). **Follow-up email sent 2026-08-17** (referencing App ID `DQcUfVuZ`, asking for a
+  status update). Watch sc8tty@gmail.com for a reply.
 
 ## Next issues to build
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
