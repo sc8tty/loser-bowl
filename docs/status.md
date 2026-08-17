@@ -140,17 +140,18 @@ ones.
   independent of the alias-routing fix.
 
 ## External
-- Yahoo Fantasy API access application submitted 2026-07-31. Yahoo's acknowledgment email
-  (confirmed against the real email 2026-08-17) has no application/App ID of any kind — it's
-  a plain "we got it, 1-2 weeks" notice. **App ID `DQcUfVuZ`, previously noted here, is NOT
-  in that email — origin unconfirmed.** Likely explanation: PRD Issue 0A's first step was
-  creating a Yahoo dev app at developer.yahoo.com/apps/create (before submitting the access
-  review request), which generates its own Client ID/App ID shown on Yahoo's developer
-  console, not emailed — a past session may have captured it from there rather than from this
-  confirmation. Scott: if you want to recover/verify it, check your app listing at
-  developer.yahoo.com/apps — don't trust `DQcUfVuZ` as correct until then. No response to the
-  application as of Aug 17 (2.5 weeks, past their own estimate and at the PRD's manual-mode
-  decision date) — Scott is following up today. Watch sc8tty@gmail.com for a reply.
+- Yahoo Fantasy API access application submitted 2026-07-31. Yahoo's acknowledgment email is
+  a plain "we got it, 1-2 weeks" notice with no App ID in it — that had briefly cast doubt on
+  App ID `DQcUfVuZ`, but Scott confirmed 2026-08-17 via his app's edit page at
+  developer.yahoo.com/apps (Application Name "Loser Bowl", homepage
+  `https://loserbowl.landermedia.com`, redirect URI `/api/oauth/callback`) that `DQcUfVuZ` **is
+  correct** — it's the app's own Client ID from PRD Issue 0A's dev-app-creation step, not
+  from the acknowledgment email, as guessed. Approval status still unconfirmed — the
+  "API Permissions" checkbox list (whether Fantasy Sports read scope is actually granted) was
+  below the visible crop of the screenshot Scott shared; he still needs to check that
+  directly. No response to the access-review application itself as of Aug 17 (2.5 weeks, past
+  their own 1-2 week estimate and at the PRD's manual-mode decision date) — Scott is following
+  up today. Watch sc8tty@gmail.com for a reply.
 
 ## Next issues to build
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
