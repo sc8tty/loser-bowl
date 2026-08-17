@@ -139,10 +139,13 @@ ones.
   turned off for production** in Vercel dashboard → Settings → Deployment Protection,
   independent of the alias-routing fix.
 
-## External — waiting, no action needed from us
-- Yahoo Fantasy API access application submitted 2026-07-31 (App ID `DQcUfVuZ`). Yahoo
-  acknowledged same day: review takes 1–2 weeks → expect ~Aug 7–14, inside the **Aug 17**
-  manual-mode fallback gate. Watch sc8tty@gmail.com for any clarification requests.
+## External
+- Yahoo Fantasy API access application submitted 2026-07-31. Yahoo acknowledged same day
+  (confirmed against the real email 2026-08-17): review takes 1–2 weeks, no application/App
+  ID of any kind in that email — **an earlier session's note here claiming App ID `DQcUfVuZ`
+  was wrong, not sourced from the actual confirmation; removed.** No response as of Aug 17
+  (2.5 weeks, past their own estimate and at the PRD's manual-mode decision date) — Scott is
+  following up today. Watch sc8tty@gmail.com for a reply.
 
 ## Next issues to build
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
