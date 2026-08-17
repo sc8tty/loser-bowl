@@ -146,12 +146,12 @@ ones.
   developer.yahoo.com/apps (Application Name "Loser Bowl", homepage
   `https://loserbowl.landermedia.com`, redirect URI `/api/oauth/callback`) that `DQcUfVuZ` **is
   correct** — it's the app's own Client ID from PRD Issue 0A's dev-app-creation step, not
-  from the acknowledgment email, as guessed. Approval status still unconfirmed — the
-  "API Permissions" checkbox list (whether Fantasy Sports read scope is actually granted) was
-  below the visible crop of the screenshot Scott shared; he still needs to check that
-  directly. No response to the access-review application itself as of Aug 17 (2.5 weeks, past
-  their own 1-2 week estimate and at the PRD's manual-mode decision date) — Scott is following
-  up today. Watch sc8tty@gmail.com for a reply.
+  from the acknowledgment email, as guessed. **Confirmed NOT approved**: Scott's screenshot of
+  the app's edit page showed the full "API Permissions" section, and it's genuinely empty — no
+  Fantasy Sports (or any) scope checkbox rendered at all, not just cropped out. Consistent with
+  the access-review application still being pending. No response to that application as of
+  Aug 17 (2.5 weeks, past their own 1-2 week estimate and at the PRD's manual-mode decision
+  date) — Scott is sending a follow-up today. Watch sc8tty@gmail.com for a reply.
 
 ## Next issues to build
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
