@@ -72,7 +72,8 @@ function pageTitle(data: LeagueData): string {
     return "Champion Crowned";
   }
 
-  return "Loser Bowl Bracket";
+  // The site's tagline stays up through the bracket (Scott, 2026-09-07).
+  return "Race to the Bottom";
 }
 
 export function HomePage({ data, now }: { data: LeagueData; now: Date }) {

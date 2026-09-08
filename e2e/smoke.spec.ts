@@ -31,7 +31,7 @@ test("race phase renders standings, lock countdown, and projected pairings", asy
 test("bracket phase renders mixed matchup states and TBD slots", async ({ page }) => {
   await gotoScenario(page, "bracket");
 
-  await expect(page.getByRole("banner").getByText("Loser Bowl Bracket")).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Race to the Bottom")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Round 1", exact: true }),
   ).toBeVisible();

@@ -108,7 +108,7 @@ describe("HomePage phase rendering", () => {
       matchups: [matchup()],
     });
 
-    expect(html).toContain("Loser Bowl Bracket");
+    expect(html).toContain("Race to the Bottom");
     expect(html).toContain("Round 1 Matchup 1");
     expect(html).toContain("Semifinal 1");
     expect(html).toContain("H/AB");
@@ -184,8 +184,7 @@ describe("HomePage live tally cards", () => {
     });
 
     expect(html).toContain('data-tally="7-5-3"');
-    expect(html).toContain("Live: Team 9 leads 7-5-3.");
-    expect(html).toContain(">live<");
+    expect(html).not.toContain(">live<");
     expect(html).not.toContain("Matchup detail");
     expect(html).toContain("15 min ago");
     expect(html).toContain("Sep 8, 11:45 AM PDT");

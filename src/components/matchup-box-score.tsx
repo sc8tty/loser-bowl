@@ -1,4 +1,3 @@
-import { LEAGUE_CONFIG } from "@/config/league";
 import { StatusBadge } from "@/components/status-badge";
 import {
   categoryStatLines,
@@ -6,11 +5,9 @@ import {
   formatHitsAtBats,
   formatInningsPitched,
   formatRecord,
-  isLiveMatchup,
   matchupMeta,
   matchupStatusView,
   ordinal,
-  resultExplanation,
   tallyParts,
   type CategoryStatLine,
   type PublicMatchupSlot,
@@ -50,20 +47,6 @@ function buildColumns(rows: readonly CategoryStatLine[]): Column[] {
     { kind: "support", key: "ip", label: "IP" },
     ...pitching.map((row): Column => ({ kind: "category", row })),
   ];
-}
-
-function formatDateTime(date: Date | null): string {
-  if (date === null) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: LEAGUE_CONFIG.timeZone,
-  }).format(date);
 }
 
 function teamSubline(team: PublicTeamRef | null): string {
@@ -183,7 +166,6 @@ export function MatchupBoxScore({
   const tally = tallyParts(slot);
   const rows = categoryStatLines(slot, statCategories);
   const columns = buildColumns(rows);
-  const live = isLiveMatchup(slot);
   const tallyAttr =
     tally === null ? null : `${tally.highWins}-${tally.lowWins}-${tally.ties}`;
 
@@ -201,7 +183,9 @@ export function MatchupBoxScore({
         >
           {meta.label}
         </h4>
-        <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+        {status.label === "live" ? null : (
+          <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+        )}
       </div>
 
       <div className="grid gap-4 px-4 py-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
@@ -251,7 +235,12 @@ export function MatchupBoxScore({
                   >
                     {column.kind === "support" ? column.label : column.row.label}
                     {column.kind === "category" && column.row.policyLabel ? (
-                      <span className="ml-1 text-amber-700">*</span>
+                      <span
+                        className="ml-1 text-amber-700"
+                        title="Decided by the innings-pitched minimum"
+                      >
+                        *
+                      </span>
                     ) : null}
                   </th>
                 ))}
@@ -279,19 +268,6 @@ export function MatchupBoxScore({
           </table>
         </div>
       )}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-stone-200 bg-stone-50 px-4 py-2 text-xs font-semibold text-stone-600">
-        <span>{resultExplanation(slot)}</span>
-        {live && slot.liveTally !== null ? (
-          <span className="text-stone-500">
-            Stats as of {formatDateTime(slot.liveTally.asOf)} · IP minimum applies at
-            week close
-          </span>
-        ) : null}
-        {rows.some((row) => row.policyLabel !== null) ? (
-          <span className="text-amber-800">* decided by the innings minimum</span>
-        ) : null}
-      </div>
 
       {slot.overrideWinner ? (
         <div className="border-t border-amber-300 bg-amber-50 px-4 py-3">

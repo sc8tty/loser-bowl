@@ -5,6 +5,7 @@ import {
   buildBracketSlots,
   effectiveWinner,
   matchupMeta,
+  matchupStatusView,
   roundLabel,
   type PublicMatchup,
   type PublicMatchupSlot,
@@ -113,7 +114,9 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
       <div className="bg-white px-4 py-4">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
           <h4 className="text-base font-black text-stone-950">{meta.label}</h4>
-          <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+          {matchupStatusView(slot, slot.upstreamUnderReview).label === "live" ? null : (
+            <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+          )}
         </div>
         <div className="grid gap-2">
           <TeamSlot
