@@ -227,7 +227,6 @@ function ChampionView({
         id="full-bracket"
         matchups={data.matchups}
         statCategories={data.statCategories}
-        title="Full Bracket"
       />
     </>
   );

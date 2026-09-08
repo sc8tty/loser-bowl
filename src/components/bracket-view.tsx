@@ -162,12 +162,10 @@ export function BracketView({
   matchups,
   statCategories,
   id,
-  title = "Loser Bowl Bracket",
 }: {
   matchups: readonly PublicMatchup[];
   statCategories: readonly PublicStatCategory[];
   id?: string;
-  title?: string;
 }) {
   const slots = buildBracketSlots(matchups);
   const hasReview = slots.some((slot) => slot.status === "under_review");
@@ -177,11 +175,6 @@ export function BracketView({
   return (
     <section id={id} className="border-b border-stone-300 bg-stone-100">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-4">
-          <p className="text-sm font-semibold uppercase text-rose-800">Bracket</p>
-          <h2 className="text-2xl font-black text-stone-950">{title}</h2>
-        </div>
-
         {hasReview ? (
           <div className="mb-4 border border-rose-700 bg-rose-50 px-4 py-4">
             <div className="text-sm font-black uppercase text-rose-900">

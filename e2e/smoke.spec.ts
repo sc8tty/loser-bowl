@@ -33,9 +33,6 @@ test("bracket phase renders mixed matchup states and TBD slots", async ({ page }
 
   await expect(page.getByRole("banner").getByText("Loser Bowl Bracket")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Loser Bowl Bracket", level: 2 }),
-  ).toBeVisible();
-  await expect(
     page.getByRole("heading", { name: "Round 1", exact: true }),
   ).toBeVisible();
   await expect(
@@ -61,7 +58,7 @@ test("champion phase renders winner, final link, and final detail page", async (
   await expect(page.getByText("E2E Team 16").first()).toBeVisible();
   await expect(page.getByText("Final settled")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Full Bracket" }),
+    page.getByRole("heading", { name: "Round 1", exact: true }),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "View the final matchup" }).click();
