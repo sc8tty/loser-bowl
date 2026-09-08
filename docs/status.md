@@ -1,255 +1,171 @@
-# Status (as of 2026-08-04, end of session)
+# Status (as of 2026-09-07, end of session)
 
-## Done — committed, on `main`, not yet deployed/verified live
-- **1A** (tracer bullet), **5** (bracket engine), **6A** (CSV import scripts),
-  **4A** (sync shell), **7** (Race to the Bottom polish — lock countdown, drop-zone/pairing
-  edge cases), **11** (Admin page — bcrypt+HMAC auth, sync log, override/settle controls,
-  Yahoo health), **8** (Seed lock + bracket creation), **9** (Live compute + provisional
-  advancement + settle/flag flow), **10** (Bracket UI + matchup detail), **12** (Champion
-  state), **15** (Playwright smoke in CI — see below) — all built, cold-reviewed where
-  warranted, findings fixed. 166 vitest + 4 Playwright tests green. HEAD after Issue 15:
-  `7fcf28e`.
-- **Issue 15** adds GitHub Actions CI (Vitest + build + Playwright) via an env-gated fixture
-  bypass (`E2E_TEST_MODE=true` + `x-e2e-scenario` header) so E2E tests need zero real
-  database — no Neon branch, no new secrets. Fixture phases are derived through the real
-  `phase()` function, not hardcoded. **Codex's sandbox could not actually execute the
-  Playwright suite** (`listen EPERM` — the same port-binding restriction seen in Issues 7 and
-  11, now confirmed a third time specifically for Playwright/webServer). Running it myself
-  found two real bugs Codex never could have caught: (1) `next start` reads the real
-  `.env.local` from disk regardless of env vars Playwright injects, clobbering the test admin
-  password with the local-dev one — fixed via `NODE_ENV=test`, which Next.js's own env loader
-  treats as a documented signal to skip `.env.local`; (2) several ambiguous Playwright
-  locators needed `level`/`exact`/`.first()` disambiguation. Cold review flagged a
-  defense-in-depth gap (nothing stopped `E2E_TEST_MODE` from silently activating on a real
-  deployment) — added a runtime guard, but the obvious fix (checking `NODE_ENV ===
-  "production"`) is actually **wrong**: `next start` forces `NODE_ENV` to `"production"`
-  internally regardless of what's passed to it (confirmed — this broke the E2E run itself
-  when tried). Used Vercel's own `VERCEL` env var instead (only ever set on a real Vercel
-  deployment). **This whole episode is a strong case study for why "actually run it yourself"
-  matters** — a Codex build that passes `npm test`/`npm run build`/lint clean can still ship a
-  fundamentally broken E2E suite if nobody executes it end-to-end.
-- **Issue 12** turned out to be nearly free: `phase.ts` (Issue 5) already gates the champion
-  phase strictly on the final matchup being `status: "final"` with an effective winner
-  (tested — provisional does NOT trigger it), and Issue 10's `ChampionView` already built the
-  celebration + full bracket. Only real gap: the celebration linked to the full bracket but
-  not to the final matchup's own detail page. Added that link — a small enough change
-  (2-element addition using an already-established `Link` pattern) that it didn't warrant a
-  full Codex build + cold-review cycle; done directly, verified via existing tests + build.
-- **Issue 10** is the phase-aware public UI reading Issues 5/8/9's output: `home-page.tsx`
-  now actually branches on `phase()` (race/bracket/champion) — previously `page.tsx` always
-  rendered the Race view regardless of phase, a real gap this closed. New `bracket-view.tsx`
-  (7-slot bracket, status badges, TBD placeholders that don't presuppose a pairing — PRD's
-  re-seeding is highest-vs-lowest among a round's actual winners, not a fixed bracket tree)
-  and `matchup-detail.tsx` (`/matchup/[id]` — team-level stat lines, running tally,
-  plain-language decided-by wording, public override provenance). Read-only, no admin actions
-  exposed, matching PRD's "public link, no viewer auth" requirement. Manually smoke-tested
-  against the live dev server (race view unbroken; `/matchup/r1m1` correctly shows an honest
-  "not created yet" state, since today predates the real seed lock — bracket/champion views
-  couldn't be checked against live data, verified via new component-level fixture tests plus
-  cold review instead). Cold review found no blocking issues; fixed one polish nit (a
-  not-yet-created matchup page showed the raw id like "r1m1" instead of "Round 1 Matchup 1").
-- **Issue 9** bridges the pure comparator/tiebreaker/state-machine engine (Issue 5) to real
-  weekly matchup computation: `matchupProcessor.ts` (pure decisions — compute a week via
-  `compareWeek`, tiebreak on a true tie, advance a round once every source matchup has an
-  effective winner and none are `under_review`, re-seed via `nextRoundPairings` from
-  original bowl seeds) + `matchupCompute.ts` (transactional DB executor, same atomic
-  per-status-guard pattern as Issue 8's seed lock). Dress-rehearsal integration test drives a
-  full fake 3-week bracket: seed lock → h2h tiebreak → a stat-correction flip that freezes
-  its branch while others keep computing → admin override → resumed advancement → champion.
-  Cold review found **no correctness bugs** but flagged a real gap against this project's own
-  test-first convention: the new pure module had only the one integration test vs. 8-15
-  discrete branch-level cases for comparable modules (`seedLockProcessor.ts`,
-  `stateMachine.ts`). A follow-up Codex pass closed it: 143 → 157 tests, plus a fix to the
-  dress rehearsal's freeze assertion (it wasn't actually isolating the freeze as the cause
-  vs. missing data) and a fragile object-spread cleanup. This is the biggest, most
-  consequential remaining piece of business logic in the project (decides real bracket
-  outcomes for the $50 pot) — worth another look in the eventual Fable heavyweight review
-  even though the per-issue cold review came back clean.
-- Issue 8 bridges the pure bracket state machine (Issue 5) to real DB writes: a
-  `seedLockProcessor.ts` pure decision function + `seedLock.ts` transactional executor with
-  atomic per-action `WHERE status = '<expected>' ... RETURNING` guards, so the 7-row bracket
-  skeleton (r1m1-r1m4 populated, r2m1/r2m2/final placeholders) can't get double-created under
-  concurrent visits. Required a schema migration (`sync_state.seeds_corrected_snapshot`) to
-  let the admin under-review flow actually distinguish "confirm original" from "relock
-  corrected" — previously (Issue 11) that comparison was a same-snapshot placeholder that
-  couldn't really tell them apart. Cold review caught one real gap (admin settle route could
-  silently perform a real lock instead of reporting an error if called while status was
-  still `none`) — fixed with an explicit state guard before the call.
-- All three of Issue 7, 11, and 8 were built by `codex exec -s workspace-write` (NOT
-  `--full-auto` — that flag gets blocked by Claude Code's own permission classifier when run
-  via Bash; `-s workspace-write` works). All three finished clean on the first attempt (~5,
-  ~14, ~13 min), no hangs — a big improvement over last session's 4 hangs. Cold review (fresh
-  Claude subagent, solo, no workflow fan-out) caught zero real bugs in Issue 7's diff, one
-  accepted-tradeoff finding in Issue 11 (in-memory per-IP login throttle won't survive across
-  Vercel serverless instances — already scoped that way in the build brief, not fixed), one
-  real fixed finding in Issue 8 (above).
-- **`drizzle-kit migrate` hangs in this environment** — confirmed twice, spins forever on
-  "applying migrations..." with a `'@neondatabase/serverless' can only connect ... through a
-  websocket` warning first. Worked around by applying the migration SQL directly via a small
-  script using `@next/env`'s `loadEnvConfig()` + `neon()` from `@neondatabase/serverless`
-  (same driver the app uses, just called directly instead of through drizzle-kit's CLI), then
-  manually inserting the matching row into `drizzle.__drizzle_migrations` (hash = sha256 of
-  the raw migration file content — see `node_modules/drizzle-orm/migrator.js` for the exact
-  algorithm) so future `drizzle-kit migrate` runs don't try to reapply it. **Use this
-  direct-apply approach for future migrations in this repo**, not `drizzle-kit migrate`.
-- Vercel project `loser-bowl` (sc8ttys-projects) + Neon Postgres provisioned and connected.
-- `CRON_SECRET` set in Vercel prod env; daily cron configured in `vercel.json`.
+## Manual mode is now live — playoffs started, Yahoo access never came through
+Yahoo Fantasy API access has not been approved as of this session (see External section) —
+well past the PRD's own Aug 17 manual-mode decision date, and playoffs (Week 24) started
+2026-09-07. Rather than wait any longer, this session activated manual mode for real:
+real teams, real scoring categories, real week numbers, a working seed lock, and a verified
+weekly CSV-import path. The site (`loserbowl.landermedia.com`) is live, on the real database,
+correctly showing Round 1 with real teams.
 
-## New gotcha found this session — bcrypt hashes in .env.local get corrupted by Next.js env expansion
-Next.js's `@next/env` loader (used for `.env.local` in dev, and for `.env*` files generally)
-performs variable expansion on `$`-prefixed tokens — the same feature that lets one env var
-reference another (`$OTHER_VAR`). A bcrypt hash like `$2b$10$1al.Urnc...` gets its `$2b$10$`
-prefix silently stripped/mangled because `2b` and `10` look like variable names to expand
-(to empty string, since they don't exist). Confirmed by direct test with `@next/env`'s
-`loadEnvConfig()`. **Fix: backslash-escape every `$` in `ADMIN_PASSWORD_HASH` inside
-`.env.local`** (`\$2b\$10\$...`) — confirmed this round-trips correctly.
-**This escaping is local-dev-only.** Vercel's own env var storage injects values directly
-into `process.env` with no dotenv-expand pass — when setting `ADMIN_PASSWORD_HASH` in the
-Vercel dashboard/CLI for production, use the **raw, unescaped** bcrypt hash. Local
-`.env.local` currently has the admin password hash set (escaped) and a generated
-`ADMIN_SESSION_SECRET`; both are placeholders for local testing only — **Scott should set
-his own production values in Vercel before this goes live**, not reuse the session-generated
-ones.
+## What changed this session (large session — infra bugs, real data, real UI)
 
-## Known issue — domain still not resolving (narrowed further this session)
-`loserbowl.landermedia.com` still returns **404 (Vercel NOT_FOUND)**. DNS/TLS remain fine
-(A record `76.76.21.21`, valid cert). New findings this session, via `vercel inspect` /
-`vercel alias ls` / `vercel logs`:
-- The alias record is correct — `vercel inspect` confirms `loserbowl.landermedia.com` points
-  at the current Ready production deployment, and the build itself is healthy (`/` is a
-  valid dynamic route, no build errors).
-- The 404 happens **at Vercel's edge, before the function is ever invoked** — `vercel logs`
-  shows zero log entries for requests to the custom domain.
-- **Isolated the pattern**: Vercel's **auto-generated** aliases
-  (`loser-bowl-<hash>-sc8ttys-projects.vercel.app`, the plain
-  `loser-bowl-sc8ttys-projects.vercel.app` project alias) route correctly and hit Deployment
-  Protection (302 → Vercel SSO login) — proving the deployment itself is reachable.
-  **Non-default** aliases — `loser-bowl-bice.vercel.app` (a short vanity alias) and the real
-  custom domain — both 404 at the edge with no function invocation. This isn't domain-DNS
-  specific; it reproduces on a `.vercel.app` vanity alias too.
-- Re-ran `vercel alias set` to force a fresh mapping — no change.
-- Checked vercel-status.com — no platform-wide incident.
-- **Conclusion: this looks like a genuine Vercel edge bug scoped to non-default aliases on
-  this project**, not a config mistake. Next step is genuinely the dashboard now (Project →
-  Settings → Domains), which needs a login this session didn't have (password manager not
-  connected to Claude; Claude-in-Chrome's Chrome profile isn't signed into vercel.com either).
-- **Second, independent problem found**: Deployment Protection (Vercel SSO) is ON for this
-  project. Even once the alias bug is fixed, visitors would hit a Vercel login wall instead
-  of the site — contradicts PRD's "public link, no viewer auth" requirement. **Must be
-  turned off for production** in Vercel dashboard → Settings → Deployment Protection,
-  independent of the alias-routing fix.
+### Real league data replaces Issue 1A's placeholder fixture
+- **`fixtures/standings.2026.json`** — the real 16-team 2026 Lander's League standings
+  (transcribed from Yahoo's Standings tab), byte-verified against Yahoo's actual team-name
+  strings including apostrophe style (Yahoo is inconsistent: curly `'` in "O's Before Hoes",
+  straight `'` in "Trout's Honor" and "You Hang'em We Bang'em" — checked via Unicode code
+  points, not eyeballing, since the two render identically in most fonts).
+- **`scripts/seed-fixture.ts`** now takes an optional file-path argument
+  (`npm run seed:fixture -- fixtures/standings.2026.json`), defaulting to the old Issue 1A
+  placeholder for backward compatibility.
+- **Ran the real seed against production** — but it only *added* the 16 real teams; the 16
+  old placeholder teams (Moonshot Accountants, Cellar Strategists, etc.) were never removed,
+  so the live site briefly showed a corrupted 32-team mixed bracket. Cleaned up with
+  `scripts/_oneoff-cleanup-placeholder-teams.ts` (deletes the 16 known placeholder IDs, resets
+  `sync_state`'s seed-lock fields, clears `finalSeed` on all teams, deletes stale matchup
+  rows) — kept in the repo as a record of what was done, not meant to run again.
 
-## External
-- Yahoo Fantasy API access application submitted 2026-07-31. Yahoo's acknowledgment email is
-  a plain "we got it, 1-2 weeks" notice with no App ID in it — that had briefly cast doubt on
-  App ID `DQcUfVuZ`, but Scott confirmed 2026-08-17 via his app's edit page at
-  developer.yahoo.com/apps (Application Name "Loser Bowl", homepage
-  `https://loserbowl.landermedia.com`, redirect URI `/api/oauth/callback`) that `DQcUfVuZ` **is
-  correct** — it's the app's own Client ID from PRD Issue 0A's dev-app-creation step, not
-  from the acknowledgment email, as guessed. **Confirmed NOT approved**: Scott's screenshot of
-  the app's edit page showed the full "API Permissions" section, and it's genuinely empty — no
-  Fantasy Sports (or any) scope checkbox rendered at all, not just cropped out. Consistent with
-  the access-review application still being pending. No response to that application as of
-  Aug 17 (2.5 weeks, past their own 1-2 week estimate and at the PRD's manual-mode decision
-  date). **Follow-up email sent 2026-08-17** (referencing App ID `DQcUfVuZ`, asking for a
-  status update). **Re-confirmed still NOT approved 2026-08-19** via a fresh screenshot of
-  the app's edit page — API Permissions section renders with no Fantasy Sports (or any)
-  scope checkbox, same as 2026-08-17. Signing the API Access and Use Agreement (below) is a
-  separate, contractual step and does not by itself grant the API Permissions scope.
-  **Re-confirmed still NOT approved 2026-08-26** — no change. **Second follow-up email sent
-  2026-08-26** to fantasyapiapplications@yahoosports.com (cc: sports-dev-guide@notify.yahoo.com),
-  noting the signed agreement up front, the ~4-week-old access application (past their
-  1-2 week estimate), and referencing the still-unanswered 2026-08-19 Section 2.c.vii
-  clarification email as a separate track.
-- The signed API Access and Use Agreement (Scott signed 2026-08-19, Yahoo countersignature
-  still pending) landed. Section 2.c.vii bans storing/caching/indexing Yahoo Fantasy
-  Information — in literal tension with the Approved Use Case, which requires syncing
-  standings across the season. **Clarification email sent 2026-08-19** to
-  fantasyapiapplications@yahoosports.com (App ID `DQcUfVuZ`), asking Yahoo to confirm the
-  two-tier data pattern below is compliant with Section 2.c.vii. Watch sc8tty@gmail.com for
-  a reply.
-- **Design decision for Issue 4B (Yahoo sync), 2026-08-19:** two-tier data access, driven by
-  a real product need — this is a daily-scoring league, so users need current category
-  standings to make same-day waiver/lineup moves before the next day's games, not just an
-  end-of-week number. (1) Live in-app display: fetch from Yahoo on demand (refresh-triggered),
-  short in-memory/edge cache only (minutes, to avoid redundant requests), nothing persisted
-  to Postgres. (2) Official nightly snapshot: after each day's games close, persist one
-  snapshot per team (standings, category W/L/T) — this is the only data that's stored, and
-  it's what bracket matchups are computed from. Note: `statLines` is currently keyed by
-  `(teamId, week)` only ([schema.ts](../src/db/schema.ts):139-159) — no day dimension yet,
-  so the schema needs a date/day column added before nightly snapshots can actually be
-  written. The once-daily cron in `vercel.json` (`0 10 * * *`, 10:00 UTC) already lands at
-  the right time (safely after West Coast MLB games end) for tier 2, but tier 1 (live fetch)
-  doesn't exist yet and has no code to audit for Yahoo's rate-limit responses specifically
-  (per a full-codebase Yahoo compliance audit run 2026-08-19).
+### Real scoring categories replace the Issue 1A placeholder set
+`src/config/categories.seed.ts`'s `SEEDED_STAT_CATEGORIES` was explicitly marked
+"placeholder pending real Yahoo league settings" and didn't match the real league at all.
+Confirmed the real 15 categories via Yahoo's live Scoring & Settings page:
+- **Batting (8):** R, 2B, 3B, HR, RBI, SB, AVG, OPS
+- **Pitching (7):** W, BB, K, ERA, WHIP, K/9, NSVH (Net Saves + Holds — not raw SV)
+- **Min innings pitched: 24/week** (was `null`)
 
-## Next issues to build
-- **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no
-  concrete task list without design input from Scott)
-- **14** — Security verification pass (blocked by 4B, 11 — 11 done, 4B still gated on Yahoo
-  API access). One of the two heavyweight Fable reviews Scott is holding for a dedicated
-  session (the other is Issue 9) — still not ready to trigger, 4B isn't built.
+**Key design decision (Scott's call):** OPS, ERA, WHIP, and K/9 are all **trusted as
+transcribed directly from Yahoo**, not derived from raw components, because Yahoo's team/
+player pages never expose the raw components needed to compute them ourselves — no earned
+runs allowed, no hits allowed, no batter BB/HBP/SF anywhere in the UI, only the
+already-computed ratios. AVG is still recomputed from at-bats/hits (which Yahoo does show
+directly, as "H/AB"). This removed `earned_runs_allowed`, `hits_allowed`, and `walks_allowed`
+from the schema entirely (nothing derives from them anymore) — `innings_pitched` stays, but
+only for the min-IP policy check, not for ratio derivation.
+`scripts/lib/stat-rows.ts` and `scripts/import-stats.ts` updated accordingly: `avg` is the
+only recomputed/ignored-if-provided ratio; `ops`/`era`/`whip`/`k9` are validated as decimals
+(or Yahoo's `-` placeholder) and passed through as-is.
 
-## The Yahoo-free build queue is now fully exhausted
-Per PRD's task graph, every issue buildable without Yahoo access is done: 1A, 4A, 5, 6A, 7, 8,
-9, 10, 11, 12, 15 are all shipped. All that's left Yahoo-free is 13, which has no concrete
-task list without design/copy input from Scott — this is genuinely a "check in with Scott"
-point, not a "find the next thing to build" point. The remaining substantial work
-(1B, 3, 4B, 6B, 14) is gated on Yahoo API access (submitted 2026-07-31, decision date Aug 17)
-— see External section below.
+### Week numbers were off by one
+`LEAGUE_CONFIG.rounds` in `src/config/league.ts` had the right dates (Sep 7–13, Sep 14–20,
+Sep 21–27) but the wrong week numbers (23/24/25) — Yahoo's actual week numbering for those
+same dates is **24/25/26**. Scott confirmed directly from the live league page ("Week 24
+Matchups — In progress" on Sep 7). Fixed in `league.ts`; also had to fix hardcoded week
+literals in `matchupProcessor.test.ts`'s dress-rehearsal fixture (now derived from
+`LEAGUE_CONFIG.rounds[N].week` instead of hardcoded `23`/`24`/`25`) and rebalance
+`e2eFixtures.ts`'s category-win-count fixtures for the 15-category total (was tuned for 10).
 
-## End-of-session preview walkthrough (no code changes)
-Scott asked to see what's built. Walked through the Race view (real DB data), then the
-bracket/champion/matchup-detail views using the Issue 15 fixture bypass
-(`E2E_TEST_MODE=true` + `x-e2e-scenario` header, driven via browser `fetch()` +
-`document.write()` since it's a request-header gate, not a URL param) — no persistent
-shareable link exists for this, it required me driving the browser live. Scott asked for a
-link to revisit it later; discussed but did NOT build a temporary `?e2e=<scenario>` URL
-query-param toggle as a lighter-weight alternative to the header gate for his own
-click-through access — **if picked up next session**, keep it clearly temporary/removable
-(same production-safety bar as the header gate: must never work when `E2E_TEST_MODE` isn't
-also set) and remove it once he's seen what he needs, don't let it become permanent surface
-area. A `.claude/launch.json` second entry (`loser-bowl-dev-e2e-preview`, sets
-`E2E_TEST_MODE=true` via `env`) was added and cleanly reverted twice this session for the
-screenshot walkthrough — that pattern is reusable if doing this again, but isn't currently
-in the committed file.
+### Weekly manual CSV import — tested with real Week 24 data, working
+Pulled real Week 24 in-progress stats for all 8 Loser Bowl teams from Yahoo (Standings tab →
+each team's Stats page, "Today" filter — since Sep 7 is day 1 of Week 24, "Today" totals equal
+the week's cumulative totals so far; this won't hold true for later days in a week, needs
+re-deriving each day or waiting for `npm run import:stats` to run against a full day's data).
+Built and ran a real CSV against `scripts/import-stats.ts` — validated with `--dry-run` first,
+then imported for real. 8 stat lines landed in production for Week 24.
 
-## Process notes for next session
-- **Codex worked cleanly this session** (3/3, no hangs) — a reversal of last session's 4
-  hangs. Two things changed: avoided `-c model_reasoning_effort` (per last session's
-  finding) AND used `-s workspace-write` instead of `--full-auto`. Note `--full-auto` isn't
-  just risky, it's **actually blocked** — Claude Code's own Bash permission classifier
-  rejects `codex exec --full-auto` outright (denied both plain and `nohup`/backgrounded
-  variants). `-s workspace-write` is the correct flag for unattended builds now.
-- Watchdogged via a `Monitor` polling loop (file-mtime + process-alive check every 60s, one
-  synchronous log peek around the 5 min mark to confirm real progress vs. stalled) instead of
-  passively waiting — worked well, caught real progress each time before the 15-20 min kill
-  threshold would have triggered.
-- Fresh-context cold review (Claude reviewing Claude's/Codex's own recent commits, solo, no
-  workflow fan-out) remains worth doing every issue — caught one real finding each in Issues
-  11 and 8, zero in Issue 7, even though tests/build/lint were clean every time. Keep doing
-  this for every issue, not just Codex-built ones.
-- When a build task might need a DB schema change, ask before letting Codex run migrations
-  unattended — but note Codex's sandbox **can't reach the live Neon DB anyway** (network
-  access is restricted inside `-s workspace-write`), so it can only generate migration files,
-  never apply them. Plan to apply generated migrations yourself afterward (see the
-  `drizzle-kit migrate` hang note above) rather than expecting Codex to finish that step.
-- Effort-slider gotcha: the rightmost position in Scott's UI is **Ultracode** (mandates
-  multi-agent workflows, expensive), not "max thinking." For heavyweight reviews use Fable
-  one notch left of Ultracode.
-- **When cold review finds a real gap (not just a bug), a scoped follow-up Codex task works
-  well** — Issue 9's follow-up (close a test-coverage gap + two small findings) took ~10 min,
-  found no new bugs, and the resulting diff was worth spot-checking directly (not just
-  trusting green tests) before committing — e.g. manually verified the re-seeding test table
-  against PRD's "highest remaining seed plays lowest" rule for top/bottom/mixed-seed cases.
-  Reserve this for real gaps against the project's own stated conventions (PRD's test-first
-  mandate), not for defensive/speculative findings — those should ship as-is, not trigger a
-  follow-up.
-- The heavyweight Fable review (Issue 9, the security pass) is still pending. Issue 9 now
-  exists and is a strong candidate for it even though the lighter per-issue cold review came
-  back clean, given the stakes. The security pass (Issue 14) still isn't ready to trigger —
-  it's blocked by 4B (Yahoo sync engine), which is gated on Yahoo API access.
-- With Issues 7-11 all shipped, remaining Yahoo-free work is thin (see above) — the next
-  session may hit the point where everything left genuinely needs either Yahoo access or a
-  design/copy pass rather than more backend build work. Worth checking in with Scott about
-  priorities rather than defaulting to "keep building the next unblocked issue."
+### Found and fixed: seed lock had never once succeeded in production
+`src/db/index.ts` used `neon()` + `drizzle-orm/neon-http` (the HTTP/fetch Neon driver), which
+**never supports `db.transaction()`** by design (stateless per request). Both
+`src/lib/sync/seedLock.ts` (Issue 8) and `src/lib/sync/matchupCompute.ts` (Issue 9 — the
+actual weekly bracket-advancement engine) call `db.transaction()`. Every visit-triggered sync
+attempt had been failing identically with `"No transactions support in neon-http driver"` —
+this predates this session entirely; seed lock had never worked against the real database,
+which is the real reason the bracket never locked despite the Sep 6 lock date passing.
+**Fixed** by switching to `drizzle-orm/neon-serverless` + `Pool` (WebSocket-based, supports
+real transactions; added `ws` + `@types/ws` as dependencies since Node's runtime needs a
+WebSocket implementation supplied). Verified against the real production database: seed lock
+now succeeds, Round 1 shows the real bottom-8 teams correctly paired (9 SLUMP BUSTERS vs
+16 Baseball Furries, etc.). **Confirmed working-as-designed, not a bug:** the weekly matchup
+compute engine only computes a tally once `hasMatchupWeekClosed` is true (i.e., after a round
+actually ends) — "Tally: Not computed" mid-week is correct, not broken. Live in-app category
+tracking during the week (Tier 1 from the Issue 4B two-tier design) is a separate, unbuilt
+feature.
+
+### Found and fixed: production was never connected to GitHub — deploys were 19 days stale
+`vercel project inspect loser-bowl` showed no Git Repository section at all. The project had
+been deployed exclusively via manual `vercel --prod`-style CLI runs since it was created
+38 days ago — pushing to `main` never triggered anything. The most recent production
+deployment was **19 days old** when this was discovered, meaning today's first commit
+(`6b89efe`) sat unpublished even after pushing. `vercel git connect` failed with a generic
+error until Scott connected the repo himself via the Vercel dashboard (Settings → Git —
+needs the GitHub App authorized for this specific repo, which only he can grant). Verified
+end-to-end afterward with a real empty-commit push: Vercel auto-deployed and went `Ready` in
+28 seconds. **This is now fixed — pushes to `main` deploy automatically.**
+
+### Home page UI changes (Scott's direct requests)
+- Header eyebrow/heading swapped: the phase status ("Race to the Bottom" /
+  "Loser Bowl Bracket" / "Champion Crowned") is now the small eyebrow label; "Lander's League
+  Loser Bowl" (the persistent site name) is the big `h1`.
+- Bracket/pairings section moved above the standings section (previously standings-first).
+- "Current Standings" renamed to "Regular Season Standings"; "Projected bracket" eyebrow
+  renamed to just "Bracket".
+- Removed the kebab-case team-id text that was rendering under team names on the standings
+  table (`standings-table.tsx`).
+- Removed the "Lock" status box from the header entirely; the round date range now lives
+  inline in the "Bowl weeks" line instead, e.g. `Bowl weeks 24, 25, 26 (Sep 7–Sep 27)`.
+- **"Updated" freshness text was reading Yahoo-only state and would show "—" forever during
+  manual mode.** `src/lib/sync/trigger.ts`'s `lastUpdatedAt` (new field, `LeagueData` type)
+  now sources from the most recent successful `sync_runs` row across **any** trigger
+  (Yahoo engine and manual `import-*.ts` scripts both log there), not just
+  `sync_state.lastSuccess` (Yahoo-only). Confirmed live: "Updated just now" after the manual
+  import + seed lock, instead of a stale "37 d ago" reading from an old dev-era Yahoo test.
+
+## Manual mode — the operational loop going forward
+Until Yahoo access lands (if it ever does), the weekly cadence is:
+1. Visit the live Yahoo league site, pull each of the 8 Loser Bowl teams' current stats
+   (Standings tab → click into each team → "Stats" tab, correct date filter for the day).
+2. Build a CSV matching `scripts/import-stats.ts`'s expected columns (see
+   `scripts/lib/stat-rows.ts` for the exact schema — `r,2b,3b,hr,rbi,sb,ops,w,bb,k,era,whip,
+   k9,nsvh,at_bats,batting_hits,innings_pitched`, plus `team_id,week`). Real team IDs are the
+   slugs in `fixtures/standings.2026.json` (e.g. `slump-busters`, `eat-the-rich`).
+3. **Transcription rule for a team's zero-innings-pitched pitching line:** Yahoo shows `-`
+   for every pitching column (IP, W, BB, K, ERA, WHIP, K/9, NSVH) when a team has recorded no
+   innings yet. For the true counting stats (W, BB, K, NSVH) this means `0`, not `-` — the
+   games just haven't happened, the count really is zero. Only the ratio columns (ERA, WHIP,
+   K/9) should be transcribed as literal `-` (Yahoo's own "undefined at 0 IP" placeholder).
+4. `npm run import:stats -- --dry-run path/to.csv` to validate, then without `--dry-run` to
+   commit it.
+5. The bracket's own computed tally only updates once a round actually closes (see the
+   matchup-compute note above) — there's no live in-app tracking yet, so don't expect
+   "Tally" to move mid-week even with fresh imports.
+6. `import-standings.ts` and `import-regular-season-matchups.ts` exist for the tiebreaker
+   data (season category win totals, head-to-head results) but weren't exercised this
+   session — the Schedule tab (per-team, 23-week list of opponent/result/score) is the source
+   for tiebreaker #1 data when that's needed.
+
+## External — Yahoo API access (unchanged this session; still pending)
+- Yahoo Fantasy API access application submitted 2026-07-31. Still **not approved** as of the
+  last check (2026-08-26) — 2 follow-up emails sent (2026-08-17, 2026-08-26, the second
+  cc'ing sports-dev-guide@notify.yahoo.com and noting the signed agreement up front). No
+  Yahoo reply logged yet to either the access-application follow-ups or the 2026-08-19
+  Section 2.c.vii data-storage clarification email. Watch sc8tty@gmail.com.
+- Yahoo's automated email claiming "Fantasy Sports is now available" turned out to be
+  incorrect for this account — confirmed by testing both the existing app and a freshly
+  created one; neither shows a Fantasy Sports option, only "OpenID Connect Permissions" and
+  "TW Auction" (unrelated, likely legacy Yahoo Auctions). Replied on that thread with this
+  evidence 2026-09-07; no response yet as of session end.
+- The signed API Access and Use Agreement (Scott signed 2026-08-19) — Yahoo countersignature
+  and the Section 2.c.vii clarification are both still outstanding.
+- Design decision from 2026-08-19 (two-tier Yahoo data access: live ephemeral fetch vs.
+  official nightly Postgres snapshot) is still the plan **if/when** Yahoo access lands —
+  nothing about manual mode changes that design, it's just deferred.
+
+## Known-resolved (kept for history)
+- Domain 404 / Deployment Protection issues from earlier sessions: resolved 2026-08-19 (see
+  memory `project_vercel_alias_bug.md` — Framework Preset was "Other" instead of "Next.js").
+- `drizzle-kit migrate` hangs in this environment (confirmed, worked around via direct script
+  — see git history before this rewrite for the full note, still applies to any future
+  migration).
+- Bcrypt hashes in `.env.local` get mangled by Next.js's `$`-expansion — must backslash-escape
+  `$` in `ADMIN_PASSWORD_HASH` locally; Vercel's own env storage needs the raw unescaped hash.
+
+## Next session
+- Continue the weekly manual CSV cadence (see "Manual mode" above) through all three playoff
+  rounds (Weeks 24, 25, 26 — through Sep 27).
+- Watch for a Yahoo reply on either thread; if access ever lands, Issue 4B (real sync) and
+  the two-tier data design are still the plan, but nothing is currently blocked on it.
+- `import-standings.ts` / `import-regular-season-matchups.ts` haven't been exercised with
+  real data yet — will be needed the first time a real tiebreaker actually comes up.
+- The heavyweight Fable review of Issue 9 (matchup compute — decides real bracket outcomes
+  for the $50 pot) is still pending from prior sessions; now doubly worth doing since it just
+  started actually executing against production for the first time.
