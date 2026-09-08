@@ -143,3 +143,27 @@ describe("parseStatsRow", () => {
     expect(parsed.stats.avg).toBe("-");
   });
 });
+
+describe("signed counting stats", () => {
+  const base = {
+    team_id: "signed-team",
+    week: "24",
+    r: "2", "2b": "2", "3b": "0", hr: "1", rbi: "3", sb: "0",
+    ops: "1.031",
+    w: "1", bb: "3", k: "3",
+    era: "2.08", whip: "1.38", k9: "6.23",
+    nsvh: "-2",
+    at_bats: "22", batting_hits: "8", innings_pitched: "4.1",
+  };
+  const opts = { knownTeamIds: new Set(["signed-team"]), maxWeek: 26 };
+
+  it("accepts a negative NSVH (blown save nets below zero, as Yahoo prints it)", () => {
+    expect(parseStatsRow(base, SEEDED_STAT_CATEGORIES, opts).stats.nsvh).toBe("-2");
+  });
+
+  it("still rejects a negative value in any other counting category", () => {
+    expect(() =>
+      parseStatsRow({ ...base, r: "-1" }, SEEDED_STAT_CATEGORIES, opts),
+    ).toThrow(/non-negative/);
+  });
+});

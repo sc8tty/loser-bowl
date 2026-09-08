@@ -24,6 +24,15 @@ const countingStat = z
   .string()
   .regex(/^\d+$/, "must be a non-negative integer");
 
+// Net saves + holds is the one counting category Yahoo reports below zero
+// (a blown save subtracts). Everything else stays strictly non-negative so a
+// stray minus sign in a transcription is still caught.
+const SIGNED_COUNTING_SLUGS: ReadonlySet<string> = new Set(["nsvh"]);
+
+const signedCountingStat = z
+  .string()
+  .regex(/^-?\d+$/, "must be an integer");
+
 const directRatioStat = z
   .string()
   .regex(/^(-|\d*\.\d+|\d+)$/, 'must be a decimal number or "-"');
@@ -108,7 +117,9 @@ export function parseStatsRow(
       throw new Error(`Missing required category column "${slug}".`);
     }
 
-    stats[slug] = countingStat.parse(value);
+    stats[slug] = (
+      SIGNED_COUNTING_SLUGS.has(slug) ? signedCountingStat : countingStat
+    ).parse(value);
   }
 
   for (const slug of requiredDirectRatios) {

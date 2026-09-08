@@ -82,3 +82,16 @@ describe("parseCompositeFraction", () => {
     }
   });
 });
+
+describe("parseRatio negative counting values", () => {
+  it("accepts a negative integer the way Yahoo prints NSVH after a blown save", () => {
+    expect(parseRatio("-2")).toMatchObject({ value: -2, decimalPlaces: 0 });
+    expect(parseRatio(-2)).toMatchObject({ value: -2, decimalPlaces: 0 });
+  });
+
+  it("still rejects a bare dash and malformed signs", () => {
+    expect(() => parseRatio("-")).toThrow();
+    expect(() => parseRatio("--2")).toThrow();
+    expect(() => parseRatio("2-")).toThrow();
+  });
+});

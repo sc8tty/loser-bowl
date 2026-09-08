@@ -95,17 +95,22 @@ export function parseRatio(input: YahooStatInput): ParsedRatio {
   }
 
   const raw = statString(input);
-  const match = /^(?:(\d+)(?:\.(\d+))?|\.(\d+))$/.exec(raw);
+  // A leading "-" is legal: NSVH (net saves + holds) goes negative after a
+  // blown save, and Yahoo prints it as "-2" (seen live 2026-09-07). Without
+  // this the final-mode compute threw at week close and the round never
+  // settled.
+  const match = /^(-?)(?:(\d+)(?:\.(\d+))?|\.(\d+))$/.exec(raw);
 
   if (!match) {
     throw new Error(`Invalid ratio value: ${input}`);
   }
 
-  const [, wholeText, fractionalText, omittedZeroFractionalText] = match;
+  const [, sign, wholeText, fractionalText, omittedZeroFractionalText] = match;
   const decimalText = fractionalText ?? omittedZeroFractionalText ?? "";
+  const unsigned = raw.slice(sign.length);
 
   return {
-    value: Number(raw.startsWith(".") ? `0${raw}` : raw),
+    value: Number(`${sign}${unsigned.startsWith(".") ? `0${unsigned}` : unsigned}`),
     decimalPlaces: decimalText.length,
     omittedLeadingZero: wholeText === undefined,
   };
