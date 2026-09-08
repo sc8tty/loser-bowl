@@ -1,12 +1,10 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Baseball favicon: white ball, dark outline, two red seams with stitches. -->
-  <circle cx="32" cy="32" r="29" fill="#fffaf0" stroke="#1c1917" stroke-width="3"/>
-  <g fill="none" stroke="#b91c1c" stroke-width="3" stroke-linecap="round">
-    <path d="M19 6 C 9 20, 9 44, 19 58"/>
-    <path d="M45 6 C 55 20, 55 44, 45 58"/>
-  </g>
-  <g stroke="#b91c1c" stroke-width="2.5" stroke-linecap="round">
-    <path d="M11 15 l7 3 M9 23 l7 2 M8 31 l7 1 M9 39 l7 -1 M11 47 l7 -3"/>
-    <path d="M53 15 l-7 3 M55 23 l-7 2 M56 31 l-7 1 M55 39 l-7 -1 M53 47 l-7 -3"/>
+  <!-- Baseball favicon: two seams bowing toward center, perpendicular stitches. -->
+  <circle cx="32" cy="32" r="29.5" fill="#fffdf7" stroke="#1c1917" stroke-width="2.5"/>
+  <g fill="none" stroke="#c81e1e" stroke-linecap="round">
+    <path stroke-width="2.4" d="M19 6 Q 31 32 19 58"/>
+    <path stroke-width="2.4" d="M45 6 Q 33 32 45 58"/>
+    <path stroke-width="1.8" d="M24.2 11.3 L18.9 13.2 M26.1 17.8 L20.7 19.1 M27.3 24.4 L21.8 25.1 M27.8 30.9 L22.2 31.0 M27.5 37.5 L22.0 36.9 M26.6 44.0 L21.1 42.9 M24.9 50.5 L19.6 48.8"/>
+    <path stroke-width="1.8" d="M45.1 13.2 L39.8 11.3 M43.3 19.1 L37.9 17.8 M42.2 25.1 L36.7 24.4 M41.8 31.0 L36.2 30.9 M42.0 36.9 L36.5 37.5 M42.9 42.9 L37.4 44.0 M44.4 48.8 L39.1 50.5"/>
   </g>
 </svg>
