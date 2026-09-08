@@ -87,7 +87,7 @@ describe("HomePage phase rendering", () => {
     });
 
     expect(html).toContain("Race to the Bottom");
-    expect(html).toContain("Current Standings");
+    expect(html).toContain("Regular Season Standings");
     expect(html).toContain("Round 1 Pairings");
     expect(html).not.toContain("Loser Bowl Bracket");
   });

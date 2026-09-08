@@ -86,7 +86,6 @@ function DropZoneFragment({
         </td>
         <td className="px-4 py-3">
           <div className="font-semibold text-stone-950">{team.name}</div>
-          <div className="mt-1 text-xs text-stone-500">{team.id}</div>
         </td>
         <td className="px-4 py-3 font-mono text-sm text-stone-700">
           {recordFor(team)}

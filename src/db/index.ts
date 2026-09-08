@@ -1,7 +1,7 @@
 import "server-only";
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
+import ws from "ws";
+import { drizzle } from "drizzle-orm/neon-serverless";
 
 import * as schema from "./schema";
 
@@ -14,10 +14,18 @@ export class MissingDatabaseUrlError extends Error {
   }
 }
 
+// neon-http (the HTTP/fetch driver) never supports db.transaction() — it's
+// stateless per request. seedLock.ts and matchupCompute.ts both need real
+// transactions for their atomic multi-row writes, so this uses the
+// WebSocket-based Pool driver instead (confirmed working in Vercel's Node.js
+// runtime, not just Edge — `ws` supplies the WebSocket implementation Node
+// itself lacks).
 function createDb(databaseUrl: string) {
-  const client = neon(databaseUrl);
-
-  return drizzle(client, { schema });
+  return drizzle({
+    connection: databaseUrl,
+    schema,
+    ws,
+  });
 }
 
 export type Db = ReturnType<typeof createDb>;

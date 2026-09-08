@@ -4,7 +4,7 @@ import { LEAGUE_CONFIG } from "@/config/league";
 import { BracketView } from "@/components/bracket-view";
 import { ProjectedPairings } from "@/components/projected-pairings";
 import { StandingsTable } from "@/components/standings-table";
-import { formatLockCountdown, getProjectedRoundOnePairings } from "@/lib/bracket";
+import { getProjectedRoundOnePairings } from "@/lib/bracket";
 import { buildBracketSlots, effectiveWinner } from "@/lib/public/matchups";
 import type { LeagueData } from "@/lib/sync/trigger";
 
@@ -31,15 +31,21 @@ export function formatUpdatedAgo(lastSuccessAt: Date | null, now: Date): string 
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
 }
 
-function formatConfigDate(date: string) {
+function formatMonthDay(date: string) {
   const [year, month, day] = date.split("-").map(Number);
 
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
     timeZone: "UTC",
   }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+function bowlWeeksRange(rounds: typeof LEAGUE_CONFIG.rounds) {
+  const start = formatMonthDay(rounds[0].start);
+  const end = formatMonthDay(rounds[rounds.length - 1].end);
+
+  return `${start}–${end}`;
 }
 
 function pageTitle(data: LeagueData): string {
@@ -56,7 +62,6 @@ function pageTitle(data: LeagueData): string {
 
 export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
   const updatedAgo = formatUpdatedAgo(data.lastUpdatedAt, now);
-  const lockCountdown = formatLockCountdown(now, LEAGUE_CONFIG);
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -65,18 +70,13 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="mb-2 text-sm font-semibold uppercase text-amber-300">
-                Lander&apos;s League Loser Bowl
+                {pageTitle(data)}
               </p>
-              <h1 className="text-4xl font-black">{pageTitle(data)}</h1>
+              <h1 className="text-4xl font-black">
+                Lander&apos;s League Loser Bowl
+              </h1>
             </div>
-            <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-1 sm:text-right">
-              <StatusPill label="Season" value={String(LEAGUE_CONFIG.season)} />
-              <StatusPill
-                label="Lock"
-                value={lockCountdown}
-                detail={formatConfigDate(LEAGUE_CONFIG.bracketLockDate)}
-              />
-            </div>
+            <StatusPill label="Season" value={String(LEAGUE_CONFIG.season)} />
           </div>
           <div className="grid gap-3 border-t border-stone-700 pt-4 text-sm text-stone-200 sm:grid-cols-3">
             <div>
@@ -85,7 +85,8 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
             </div>
             <div>
               <span className="font-semibold text-white">Bowl weeks</span>{" "}
-              {LEAGUE_CONFIG.rounds.map((round) => round.week).join(", ")}
+              {LEAGUE_CONFIG.rounds.map((round) => round.week).join(", ")} (
+              {bowlWeeksRange(LEAGUE_CONFIG.rounds)})
             </div>
             <div>
               <span className="font-semibold text-white">Updated</span>{" "}
@@ -117,7 +118,21 @@ function RaceView({ data }: { data: Extract<LeagueData, { status: "ready" }> }) 
 
   return (
     <>
-      <section className="border-b border-stone-300 bg-stone-100">
+      <section className="border-b border-stone-300 bg-white">
+        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
+          <div className="mb-4">
+            <p className="text-sm font-semibold uppercase text-amber-700">
+              Bracket
+            </p>
+            <h2 className="text-2xl font-black text-stone-950">
+              Round 1 Pairings
+            </h2>
+          </div>
+          <ProjectedPairings pairings={pairings} />
+        </div>
+      </section>
+
+      <section className="bg-stone-100">
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
           <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
             <div>
@@ -125,25 +140,11 @@ function RaceView({ data }: { data: Extract<LeagueData, { status: "ready" }> }) 
                 The Drop Zone
               </p>
               <h2 className="text-2xl font-black text-stone-950">
-                Current Standings
+                Regular Season Standings
               </h2>
             </div>
           </div>
           <StandingsTable teams={data.teams} />
-        </div>
-      </section>
-
-      <section className="bg-white">
-        <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mb-4">
-            <p className="text-sm font-semibold uppercase text-amber-700">
-              Projected bracket
-            </p>
-            <h2 className="text-2xl font-black text-stone-950">
-              Round 1 Pairings
-            </h2>
-          </div>
-          <ProjectedPairings pairings={pairings} />
         </div>
       </section>
     </>
