@@ -9,17 +9,24 @@ import type { StatCategory } from "../../src/config/categories.seed.ts";
 export const SUPPORT_STAT_SLUGS = [
   "at_bats",
   "batting_hits",
-  "earned_runs_allowed",
-  "hits_allowed",
-  "walks_allowed",
   "innings_pitched",
 ] as const;
 
-const RATIO_SLUGS = ["avg", "era", "whip"] as const;
+// Recomputed from support stats — any provided value for these is ignored (with a warning).
+const RATIO_SLUGS = ["avg"] as const;
+
+// Trusted as transcribed from Yahoo directly, not derived — Yahoo never exposes the raw
+// components (earned runs/hits allowed, batter BB/HBP/SF) needed to compute these ourselves
+// (see SEEDED_LEAGUE_SETTINGS_NOTE).
+const DIRECT_RATIO_SLUGS = ["ops", "era", "whip", "k9"] as const;
 
 const countingStat = z
   .string()
   .regex(/^\d+$/, "must be a non-negative integer");
+
+const directRatioStat = z
+  .string()
+  .regex(/^(-|\d*\.\d+|\d+)$/, 'must be a decimal number or "-"');
 
 export type StatsCsvRow = Record<string, string>;
 
@@ -55,9 +62,10 @@ function ratio(numerator: number, denominator: number, digits: number): string {
 }
 
 /**
- * Validates one stats CSV row against the league's scoring categories and
- * recomputes AVG/ERA/WHIP from support components — provided ratio columns
- * are ignored (single computation path, warned upstream).
+ * Validates one stats CSV row against the league's scoring categories.
+ * Recomputes AVG from support components (any provided value is ignored,
+ * warned upstream); OPS/ERA/WHIP/K9 are trusted as transcribed from Yahoo
+ * directly, since Yahoo never exposes their raw components.
  */
 export function parseStatsRow(
   row: StatsCsvRow,
@@ -76,7 +84,18 @@ export function parseStatsRow(
     .filter(
       (category) =>
         !category.is_only_display_stat &&
-        !RATIO_SLUGS.includes(category.slug as (typeof RATIO_SLUGS)[number]),
+        !RATIO_SLUGS.includes(category.slug as (typeof RATIO_SLUGS)[number]) &&
+        !DIRECT_RATIO_SLUGS.includes(
+          category.slug as (typeof DIRECT_RATIO_SLUGS)[number],
+        ),
+    )
+    .map((category) => category.slug);
+
+  const requiredDirectRatios = categories
+    .filter((category) =>
+      DIRECT_RATIO_SLUGS.includes(
+        category.slug as (typeof DIRECT_RATIO_SLUGS)[number],
+      ),
     )
     .map((category) => category.slug);
 
@@ -90,6 +109,16 @@ export function parseStatsRow(
     }
 
     stats[slug] = countingStat.parse(value);
+  }
+
+  for (const slug of requiredDirectRatios) {
+    const value = row[slug];
+
+    if (value === undefined || value === "") {
+      throw new Error(`Missing required category column "${slug}".`);
+    }
+
+    stats[slug] = directRatioStat.parse(value);
   }
 
   for (const slug of SUPPORT_STAT_SLUGS) {
@@ -109,10 +138,10 @@ export function parseStatsRow(
 
   const atBats = Number(stats.at_bats);
   const battingHits = Number(stats.batting_hits);
-  const earnedRuns = Number(stats.earned_runs_allowed);
-  const hitsAllowed = Number(stats.hits_allowed);
-  const walksAllowed = Number(stats.walks_allowed);
-  const innings = inningsPitchedOrThrow(stats.innings_pitched).value;
+
+  // Validates format only — innings_pitched is kept for the min-IP policy check,
+  // not derivation (ERA/WHIP/K9 are trusted-transcribed; see SEEDED_LEAGUE_SETTINGS_NOTE).
+  inningsPitchedOrThrow(stats.innings_pitched);
 
   if (battingHits > atBats) {
     throw new Error(
@@ -121,9 +150,6 @@ export function parseStatsRow(
   }
 
   stats.avg = ratio(battingHits, atBats, 3);
-  stats.era = innings === 0 ? "-" : ((earnedRuns * 9) / innings).toFixed(2);
-  stats.whip =
-    innings === 0 ? "-" : ((hitsAllowed + walksAllowed) / innings).toFixed(2);
 
   return { teamId, week, stats };
 }

@@ -9,35 +9,42 @@ const validRow: Record<string, string> = {
   team_id: "moonshot-accountants",
   week: "23",
   r: "38",
+  "2b": "12",
+  "3b": "2",
   hr: "9",
   rbi: "35",
   sb: "6",
+  ops: "0.745",
   w: "4",
-  sv: "3",
+  bb: "22",
+  nsvh: "3",
   k: "61",
+  era: "3.61",
+  whip: "1.28",
+  k9: "10.49",
   at_bats: "231",
   batting_hits: "64",
-  earned_runs_allowed: "21",
-  hits_allowed: "49",
-  walks_allowed: "18",
   innings_pitched: "52.1",
 };
 
 const options = { knownTeamIds: KNOWN, maxWeek: 25 };
 
 describe("parseStatsRow", () => {
-  it("accepts a valid row and recomputes ratios from components", () => {
+  it("accepts a valid row, recomputes AVG, and trusts the transcribed ratios", () => {
     const parsed = parseStatsRow(validRow, SEEDED_STAT_CATEGORIES, options);
 
     expect(parsed.teamId).toBe("moonshot-accountants");
     expect(parsed.week).toBe(23);
     expect(parsed.stats.avg).toBe((64 / 231).toFixed(3));
-    // 52.1 IP = 52 1/3 innings; ERA = 21 * 9 / 52.333...
-    expect(parsed.stats.era).toBe(((21 * 9) / (52 + 1 / 3)).toFixed(2));
-    expect(parsed.stats.whip).toBe(((49 + 18) / (52 + 1 / 3)).toFixed(2));
+    // OPS/ERA/WHIP/K9 are trusted as transcribed from Yahoo, not derived —
+    // Yahoo never exposes the raw components needed to compute them ourselves.
+    expect(parsed.stats.ops).toBe("0.745");
+    expect(parsed.stats.era).toBe("3.61");
+    expect(parsed.stats.whip).toBe("1.28");
+    expect(parsed.stats.k9).toBe("10.49");
   });
 
-  it("overrides any provided ratio columns with computed values", () => {
+  it("overrides a provided avg value with the computed value", () => {
     const parsed = parseStatsRow(
       { ...validRow, avg: "0.999" },
       SEEDED_STAT_CATEGORIES,
@@ -45,6 +52,31 @@ describe("parseStatsRow", () => {
     );
 
     expect(parsed.stats.avg).toBe((64 / 231).toFixed(3));
+  });
+
+  it("does not override provided ops/era/whip/k9 values (trusted, not derived)", () => {
+    const parsed = parseStatsRow(
+      { ...validRow, ops: "0.812", era: "2.90", whip: "1.05", k9: "9.20" },
+      SEEDED_STAT_CATEGORIES,
+      options,
+    );
+
+    expect(parsed.stats.ops).toBe("0.812");
+    expect(parsed.stats.era).toBe("2.90");
+    expect(parsed.stats.whip).toBe("1.05");
+    expect(parsed.stats.k9).toBe("9.20");
+  });
+
+  it("accepts '-' for a trusted ratio (Yahoo's zero-sample placeholder)", () => {
+    const parsed = parseStatsRow(
+      { ...validRow, era: "-", whip: "-", k9: "-" },
+      SEEDED_STAT_CATEGORIES,
+      options,
+    );
+
+    expect(parsed.stats.era).toBe("-");
+    expect(parsed.stats.whip).toBe("-");
+    expect(parsed.stats.k9).toBe("-");
   });
 
   it("rejects unknown teams", () => {
@@ -67,13 +99,22 @@ describe("parseStatsRow", () => {
     ).toThrow(/IP notation/i);
   });
 
-  it("rejects a missing support column", () => {
+  it("rejects a missing required column", () => {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { hits_allowed: _dropped, ...withoutHitsAllowed } = validRow;
+    const { whip: _dropped, ...withoutWhip } = validRow;
 
     expect(() =>
-      parseStatsRow(withoutHitsAllowed, SEEDED_STAT_CATEGORIES, options),
-    ).toThrow(/hits_allowed/);
+      parseStatsRow(withoutWhip, SEEDED_STAT_CATEGORIES, options),
+    ).toThrow(/whip/);
+  });
+
+  it("rejects a missing support column", () => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { innings_pitched: _dropped, ...withoutInnings } = validRow;
+
+    expect(() =>
+      parseStatsRow(withoutInnings, SEEDED_STAT_CATEGORIES, options),
+    ).toThrow(/innings_pitched/);
   });
 
   it("rejects batting hits exceeding at-bats", () => {
@@ -90,23 +131,6 @@ describe("parseStatsRow", () => {
     expect(() =>
       parseStatsRow({ ...validRow, week: "30" }, SEEDED_STAT_CATEGORIES, options),
     ).toThrow();
-  });
-
-  it("emits '-' for zero-IP ratios instead of fabricating a best-possible ERA/WHIP", () => {
-    const parsed = parseStatsRow(
-      {
-        ...validRow,
-        innings_pitched: "0",
-        earned_runs_allowed: "0",
-        hits_allowed: "0",
-        walks_allowed: "0",
-      },
-      SEEDED_STAT_CATEGORIES,
-      options,
-    );
-
-    expect(parsed.stats.era).toBe("-");
-    expect(parsed.stats.whip).toBe("-");
   });
 
   it("emits '-' for zero-AB average instead of a worst-possible .000", () => {

@@ -10,9 +10,9 @@ export const LEAGUE_CONFIG = {
   timeZone: "America/Los_Angeles",
   bracketLockDate: "2026-09-06",
   rounds: [
-    { round: 1, week: 23, start: "2026-09-07", end: "2026-09-13" },
-    { round: 2, week: 24, start: "2026-09-14", end: "2026-09-20" },
-    { round: 3, week: 25, start: "2026-09-21", end: "2026-09-27" },
+    { round: 1, week: 24, start: "2026-09-07", end: "2026-09-13" },
+    { round: 2, week: 25, start: "2026-09-14", end: "2026-09-20" },
+    { round: 3, week: 26, start: "2026-09-21", end: "2026-09-27" },
   ],
   bowlSeeds: [9, 10, 11, 12, 13, 14, 15, 16],
   leagueKey: process.env.LEAGUE_KEY ?? null,

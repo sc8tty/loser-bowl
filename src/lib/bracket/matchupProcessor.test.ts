@@ -780,10 +780,10 @@ describe("Loser Bowl dress rehearsal", () => {
     }));
     const statLines = new Map<string, StatLineForProcessing>();
 
-    setStatLines(statLines, 23, "team-9", "team-16", 6, 4);
-    setStatLines(statLines, 23, "team-10", "team-15", 4, 6);
-    setStatLines(statLines, 23, "team-11", "team-14", 5, 5);
-    setStatLines(statLines, 23, "team-12", "team-13", 4, 6);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[0].week, "team-9", "team-16", 6, 4);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[0].week, "team-10", "team-15", 4, 6);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[0].week, "team-11", "team-14", 5, 5);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[0].week, "team-12", "team-13", 4, 6);
 
     const roundOneActions = runProcessor({
       now: R1_CLOSE,
@@ -812,7 +812,7 @@ describe("Loser Bowl dress rehearsal", () => {
       lowTeamId: "team-14",
     });
 
-    setStatLines(statLines, 23, "team-9", "team-16", 4, 6);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[0].week, "team-9", "team-16", 4, 6);
 
     const correctionActions = runProcessor({
       now: R1_CORRECTION,
@@ -835,8 +835,8 @@ describe("Loser Bowl dress rehearsal", () => {
       overrideWinnerTeamId: null,
     });
 
-    setStatLines(statLines, 24, "team-9", "team-15", 6, 4);
-    setStatLines(statLines, 24, "team-13", "team-14", 6, 4);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[1].week, "team-9", "team-15", 6, 4);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[1].week, "team-13", "team-14", 6, 4);
 
     const frozenActions = runProcessor({
       now: R2_CLOSE,
@@ -864,8 +864,8 @@ describe("Loser Bowl dress rehearsal", () => {
       note: "Corrected stat import flipped the matchup winner.",
       now: R2_CLOSE,
     });
-    setStatLines(statLines, 24, "team-13", "team-16", 6, 4);
-    setStatLines(statLines, 24, "team-14", "team-15", 6, 4);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[1].week, "team-13", "team-16", 6, 4);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[1].week, "team-14", "team-15", 6, 4);
 
     runProcessor({
       now: R2_CLOSE,
@@ -905,7 +905,7 @@ describe("Loser Bowl dress rehearsal", () => {
       status: "pending",
     });
 
-    setStatLines(statLines, 25, "team-13", "team-14", 4, 6);
+    setStatLines(statLines, LEAGUE_CONFIG.rounds[2].week, "team-13", "team-14", 4, 6);
 
     runProcessor({
       now: FINAL_CLOSE,

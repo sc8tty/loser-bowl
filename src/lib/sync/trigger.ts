@@ -1,6 +1,6 @@
 import "server-only";
 
-import { asc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { after } from "next/server";
 
 import { LEAGUE_CONFIG } from "@/config/league";
@@ -8,6 +8,7 @@ import { getDb, MissingDatabaseUrlError } from "@/db";
 import {
   leagueSettings,
   matchups,
+  syncRuns,
   syncState,
   teams as teamsTable,
 } from "@/db/schema";
@@ -41,13 +42,25 @@ export type LeagueTeam = {
 };
 
 export type LeagueData =
-  | { status: "awaiting"; teams: []; phase: "race"; lastSuccessAt: null }
+  | {
+      status: "awaiting";
+      teams: [];
+      phase: "race";
+      lastSuccessAt: null;
+      lastUpdatedAt: null;
+    }
   | {
       status: "ready";
       teams: LeagueTeam[];
       matchups: PublicMatchup[];
       phase: BracketPhase;
       lastSuccessAt: Date | null;
+      // Public-facing "Updated" freshness: the more recent of the Yahoo sync
+      // engine's own success timestamp and any successful manual import
+      // (scripts/import-*.ts log to sync_runs too) — lastSuccessAt alone only
+      // ever reflects Yahoo, so it stays "—" forever during manual mode even
+      // right after a real import lands (Scott caught this 2026-09-07).
+      lastUpdatedAt: Date | null;
     };
 
 export type MatchupDetailData =
@@ -111,6 +124,13 @@ function isMissingRelation(error: unknown): boolean {
   }
 
   return false;
+}
+
+function latestOf(a: Date | null, b: Date | null): Date | null {
+  if (a === null) return b;
+  if (b === null) return a;
+
+  return a.getTime() >= b.getTime() ? a : b;
 }
 
 function toPublicRound(round: number): 1 | 2 | 3 {
@@ -245,29 +265,49 @@ export async function getLeagueData(
   try {
     const db = getDb();
 
-    const [teamRows, stateRows, matchupRows] = await Promise.all([
-      db
-        .select({
-          id: teamsTable.id,
-          name: teamsTable.name,
-          currentRank: teamsTable.currentRank,
-          finalSeed: teamsTable.finalSeed,
-          outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
-        })
-        .from(teamsTable)
-        .orderBy(asc(teamsTable.currentRank)),
-      db.select().from(syncState).where(eq(syncState.id, 1)),
-      db
-        .select()
-        .from(matchups)
-        .orderBy(asc(matchups.round), asc(matchups.id)),
-    ]);
+    const [teamRows, stateRows, matchupRows, lastSuccessfulRunRows] =
+      await Promise.all([
+        db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            currentRank: teamsTable.currentRank,
+            finalSeed: teamsTable.finalSeed,
+            outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
+          })
+          .from(teamsTable)
+          .orderBy(asc(teamsTable.currentRank)),
+        db.select().from(syncState).where(eq(syncState.id, 1)),
+        db
+          .select()
+          .from(matchups)
+          .orderBy(asc(matchups.round), asc(matchups.id)),
+        db
+          .select({ finishedAt: syncRuns.finishedAt })
+          .from(syncRuns)
+          .where(eq(syncRuns.status, "success"))
+          .orderBy(desc(syncRuns.finishedAt))
+          .limit(1),
+      ]);
 
     if (teamRows.length === 0) {
-      return { status: "awaiting", teams: [], phase: "race", lastSuccessAt: null };
+      return {
+        status: "awaiting",
+        teams: [],
+        phase: "race",
+        lastSuccessAt: null,
+        lastUpdatedAt: null,
+      };
     }
 
     const lastSuccessAt = stateRows[0]?.lastSuccess ?? null;
+    // Any successful sync_runs row counts here — the Yahoo engine and the
+    // manual import scripts (scripts/import-*.ts) both log to it, so this
+    // reflects real data freshness during manual mode too, not just Yahoo.
+    const lastUpdatedAt = latestOf(
+      lastSuccessAt,
+      lastSuccessfulRunRows[0]?.finishedAt ?? null,
+    );
 
     const currentPhase = phase(
       now,
@@ -290,6 +330,7 @@ export async function getLeagueData(
       status: "ready",
       phase: currentPhase,
       lastSuccessAt,
+      lastUpdatedAt,
       matchups: publicMatchups(matchupRows, teamRows),
       teams: teamRows.map((row) => ({
         id: row.id,
@@ -302,7 +343,13 @@ export async function getLeagueData(
     };
   } catch (error) {
     if (error instanceof MissingDatabaseUrlError || isMissingRelation(error)) {
-      return { status: "awaiting", teams: [], phase: "race", lastSuccessAt: null };
+      return {
+        status: "awaiting",
+        teams: [],
+        phase: "race",
+        lastSuccessAt: null,
+        lastUpdatedAt: null,
+      };
     }
 
     throw error;

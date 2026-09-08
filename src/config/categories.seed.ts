@@ -8,12 +8,28 @@ export type StatCategory = {
 };
 
 export const SEEDED_LEAGUE_SETTINGS_NOTE =
-  "Issue 1A placeholder pending real Yahoo league settings; do not treat as a verified league snapshot.";
+  "Confirmed against the live Yahoo league's Scoring & Settings page 2026-09-07 (Scott, via Claude Browser) — 15 categories, min IP 24/week. OPS, ERA, WHIP, and K/9 are all transcribed as Yahoo reports them (not derived), per Scott's call 2026-09-07: Yahoo's team/player pages never expose earned runs allowed or hits allowed as raw counts (only the already-computed ratios), so there's no clean source to derive ERA/WHIP from, and OPS needs three fields (batter BB, HBP, SF) not shown anywhere on the standings/team pages either.";
 
 export const SEEDED_STAT_CATEGORIES = [
   {
     slug: "r",
     display_name: "R",
+    sort_order: "desc",
+    is_only_display_stat: false,
+    required_support_stats: [],
+    yahoo_stat_id: null,
+  },
+  {
+    slug: "2b",
+    display_name: "2B",
+    sort_order: "desc",
+    is_only_display_stat: false,
+    required_support_stats: [],
+    yahoo_stat_id: null,
+  },
+  {
+    slug: "3b",
+    display_name: "3B",
     sort_order: "desc",
     is_only_display_stat: false,
     required_support_stats: [],
@@ -52,6 +68,15 @@ export const SEEDED_STAT_CATEGORIES = [
     yahoo_stat_id: null,
   },
   {
+    // Trusted as transcribed from Yahoo, not derived — see SEEDED_LEAGUE_SETTINGS_NOTE.
+    slug: "ops",
+    display_name: "OPS",
+    sort_order: "desc",
+    is_only_display_stat: false,
+    required_support_stats: [],
+    yahoo_stat_id: null,
+  },
+  {
     slug: "w",
     display_name: "W",
     sort_order: "desc",
@@ -60,9 +85,9 @@ export const SEEDED_STAT_CATEGORIES = [
     yahoo_stat_id: null,
   },
   {
-    slug: "sv",
-    display_name: "SV",
-    sort_order: "desc",
+    slug: "bb",
+    display_name: "BB",
+    sort_order: "asc",
     is_only_display_stat: false,
     required_support_stats: [],
     yahoo_stat_id: null,
@@ -76,23 +101,38 @@ export const SEEDED_STAT_CATEGORIES = [
     yahoo_stat_id: null,
   },
   {
+    // Trusted as transcribed from Yahoo, not derived — see SEEDED_LEAGUE_SETTINGS_NOTE.
     slug: "era",
     display_name: "ERA",
     sort_order: "asc",
     is_only_display_stat: false,
-    required_support_stats: ["earned_runs_allowed", "innings_pitched"],
+    required_support_stats: [],
     yahoo_stat_id: null,
   },
   {
+    // Trusted as transcribed from Yahoo, not derived — see SEEDED_LEAGUE_SETTINGS_NOTE.
     slug: "whip",
     display_name: "WHIP",
     sort_order: "asc",
     is_only_display_stat: false,
-    required_support_stats: [
-      "hits_allowed",
-      "walks_allowed",
-      "innings_pitched",
-    ],
+    required_support_stats: [],
+    yahoo_stat_id: null,
+  },
+  {
+    // Trusted as transcribed from Yahoo, not derived — see SEEDED_LEAGUE_SETTINGS_NOTE.
+    slug: "k9",
+    display_name: "K/9",
+    sort_order: "desc",
+    is_only_display_stat: false,
+    required_support_stats: [],
+    yahoo_stat_id: null,
+  },
+  {
+    slug: "nsvh",
+    display_name: "NSVH",
+    sort_order: "desc",
+    is_only_display_stat: false,
+    required_support_stats: [],
     yahoo_stat_id: null,
   },
   {
@@ -112,30 +152,8 @@ export const SEEDED_STAT_CATEGORIES = [
     yahoo_stat_id: null,
   },
   {
-    slug: "earned_runs_allowed",
-    display_name: "ER",
-    sort_order: "asc",
-    is_only_display_stat: true,
-    required_support_stats: [],
-    yahoo_stat_id: null,
-  },
-  {
-    slug: "hits_allowed",
-    display_name: "HA",
-    sort_order: "asc",
-    is_only_display_stat: true,
-    required_support_stats: [],
-    yahoo_stat_id: null,
-  },
-  {
-    slug: "walks_allowed",
-    display_name: "BBA",
-    sort_order: "asc",
-    is_only_display_stat: true,
-    required_support_stats: [],
-    yahoo_stat_id: null,
-  },
-  {
+    // Kept for the min-innings-pitched policy check only — ERA/WHIP/K9 no
+    // longer derive from it (see SEEDED_LEAGUE_SETTINGS_NOTE).
     slug: "innings_pitched",
     display_name: "IP",
     sort_order: "desc",
@@ -148,8 +166,8 @@ export const SEEDED_STAT_CATEGORIES = [
 export const SEEDED_LEAGUE_SETTINGS = {
   season: 2026,
   statCategories: SEEDED_STAT_CATEGORIES,
-  minInningsPitched: null,
-  playoffStartWeek: 23,
+  minInningsPitched: 24,
+  playoffStartWeek: 24,
   source: "seed",
   version: 1,
 } as const;

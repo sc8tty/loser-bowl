@@ -35,7 +35,7 @@ describe("LEAGUE_CONFIG", () => {
   it("pins the exact PRD calendar", () => {
     expect(LEAGUE_CONFIG.bracketLockDate).toBe("2026-09-06");
     expect(LEAGUE_CONFIG.rounds.map((round) => round.week)).toEqual([
-      23, 24, 25,
+      24, 25, 26,
     ]);
     expect(
       LEAGUE_CONFIG.rounds.map((round) => [round.start, round.end]),

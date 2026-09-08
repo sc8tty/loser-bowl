@@ -55,7 +55,7 @@ function pageTitle(data: LeagueData): string {
 }
 
 export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
-  const updatedAgo = formatUpdatedAgo(data.lastSuccessAt, now);
+  const updatedAgo = formatUpdatedAgo(data.lastUpdatedAt, now);
   const lockCountdown = formatLockCountdown(now, LEAGUE_CONFIG);
 
   return (

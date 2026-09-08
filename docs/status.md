@@ -152,7 +152,36 @@ ones.
   the access-review application still being pending. No response to that application as of
   Aug 17 (2.5 weeks, past their own 1-2 week estimate and at the PRD's manual-mode decision
   date). **Follow-up email sent 2026-08-17** (referencing App ID `DQcUfVuZ`, asking for a
-  status update). Watch sc8tty@gmail.com for a reply.
+  status update). **Re-confirmed still NOT approved 2026-08-19** via a fresh screenshot of
+  the app's edit page — API Permissions section renders with no Fantasy Sports (or any)
+  scope checkbox, same as 2026-08-17. Signing the API Access and Use Agreement (below) is a
+  separate, contractual step and does not by itself grant the API Permissions scope.
+  **Re-confirmed still NOT approved 2026-08-26** — no change. **Second follow-up email sent
+  2026-08-26** to fantasyapiapplications@yahoosports.com (cc: sports-dev-guide@notify.yahoo.com),
+  noting the signed agreement up front, the ~4-week-old access application (past their
+  1-2 week estimate), and referencing the still-unanswered 2026-08-19 Section 2.c.vii
+  clarification email as a separate track.
+- The signed API Access and Use Agreement (Scott signed 2026-08-19, Yahoo countersignature
+  still pending) landed. Section 2.c.vii bans storing/caching/indexing Yahoo Fantasy
+  Information — in literal tension with the Approved Use Case, which requires syncing
+  standings across the season. **Clarification email sent 2026-08-19** to
+  fantasyapiapplications@yahoosports.com (App ID `DQcUfVuZ`), asking Yahoo to confirm the
+  two-tier data pattern below is compliant with Section 2.c.vii. Watch sc8tty@gmail.com for
+  a reply.
+- **Design decision for Issue 4B (Yahoo sync), 2026-08-19:** two-tier data access, driven by
+  a real product need — this is a daily-scoring league, so users need current category
+  standings to make same-day waiver/lineup moves before the next day's games, not just an
+  end-of-week number. (1) Live in-app display: fetch from Yahoo on demand (refresh-triggered),
+  short in-memory/edge cache only (minutes, to avoid redundant requests), nothing persisted
+  to Postgres. (2) Official nightly snapshot: after each day's games close, persist one
+  snapshot per team (standings, category W/L/T) — this is the only data that's stored, and
+  it's what bracket matchups are computed from. Note: `statLines` is currently keyed by
+  `(teamId, week)` only ([schema.ts](../src/db/schema.ts):139-159) — no day dimension yet,
+  so the schema needs a date/day column added before nightly snapshots can actually be
+  written. The once-daily cron in `vercel.json` (`0 10 * * *`, 10:00 UTC) already lands at
+  the right time (safely after West Coast MLB games end) for tier 2, but tier 1 (live fetch)
+  doesn't exist yet and has no code to audit for Yahoo's rate-limit responses specifically
+  (per a full-codebase Yahoo compliance audit run 2026-08-19).
 
 ## Next issues to build
 - **13** — Copy/tone/favicon/empty states (continuous, parallel-safe, no blockers, but no

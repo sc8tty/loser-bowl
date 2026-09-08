@@ -1,4 +1,5 @@
 import { readFile } from "node:fs/promises";
+import { resolve } from "node:path";
 
 import { neon } from "@neondatabase/serverless";
 import { sql } from "drizzle-orm";
@@ -57,8 +58,13 @@ function assertFixture(fixture: StandingsFixture) {
 }
 
 async function readStandingsFixture(): Promise<StandingsFixture> {
-  const fixtureUrl = new URL("../fixtures/standings.fixture.json", import.meta.url);
-  const fixtureJson = await readFile(fixtureUrl, "utf8");
+  // Defaults to the Issue 1A placeholder; pass a path (relative to the
+  // current working directory, e.g. fixtures/standings.2026.json) to seed
+  // real league data instead: npm run seed:fixture -- fixtures/standings.2026.json
+  const fixturePath = process.argv[2]
+    ? resolve(process.cwd(), process.argv[2])
+    : new URL("../fixtures/standings.fixture.json", import.meta.url);
+  const fixtureJson = await readFile(fixturePath, "utf8");
 
   return JSON.parse(fixtureJson) as StandingsFixture;
 }

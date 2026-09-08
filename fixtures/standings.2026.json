@@ -1,0 +1,134 @@
+{
+  "_fixture": "Real Lander's League 2026 final regular-season standings, transcribed 2026-09-07 (Scott, via Claude Browser) from the live Yahoo Standings tab. This IS the real league — supersedes standings.fixture.json (Issue 1A placeholder) for production seeding.",
+  "season": 2026,
+  "teams": [
+    {
+      "id": "ghost-runners",
+      "name": "Ghost Runners",
+      "current_rank": 1,
+      "wins": 178,
+      "losses": 139,
+      "ties": 28
+    },
+    {
+      "id": "for-whom-the-belli-tolls",
+      "name": "For Whom the Belli Tolls",
+      "current_rank": 2,
+      "wins": 171,
+      "losses": 141,
+      "ties": 33
+    },
+    {
+      "id": "seiya-nara-suketto",
+      "name": "Seiya Nara Suketto!",
+      "current_rank": 3,
+      "wins": 170,
+      "losses": 152,
+      "ties": 23
+    },
+    {
+      "id": "gunnars-their-ragans",
+      "name": "Gunnars 🧡 Their Ragans",
+      "current_rank": 4,
+      "wins": 166,
+      "losses": 149,
+      "ties": 30
+    },
+    {
+      "id": "os-before-hoes",
+      "name": "O’s Before Hoes",
+      "current_rank": 5,
+      "wins": 164,
+      "losses": 152,
+      "ties": 29
+    },
+    {
+      "id": "momma-bears",
+      "name": "Momma Bears",
+      "current_rank": 6,
+      "wins": 161,
+      "losses": 153,
+      "ties": 31
+    },
+    {
+      "id": "xandiego",
+      "name": "XanDiego",
+      "current_rank": 7,
+      "wins": 164,
+      "losses": 161,
+      "ties": 20
+    },
+    {
+      "id": "hyundai-unicorns",
+      "name": "Hyundai Unicorns",
+      "current_rank": 8,
+      "wins": 161,
+      "losses": 162,
+      "ties": 22
+    },
+    {
+      "id": "slump-busters",
+      "name": "SLUMP BUSTERS",
+      "current_rank": 9,
+      "wins": 157,
+      "losses": 159,
+      "ties": 29
+    },
+    {
+      "id": "eat-the-rich",
+      "name": "Eat The Rich",
+      "current_rank": 10,
+      "wins": 153,
+      "losses": 165,
+      "ties": 27
+    },
+    {
+      "id": "trouts-honor",
+      "name": "Trout's Honor",
+      "current_rank": 11,
+      "wins": 153,
+      "losses": 165,
+      "ties": 27
+    },
+    {
+      "id": "me-so-hoerner",
+      "name": "Me So Hoerner",
+      "current_rank": 12,
+      "wins": 150,
+      "losses": 164,
+      "ties": 31
+    },
+    {
+      "id": "you-hangem-we-bangem",
+      "name": "You Hang'em We Bang'em",
+      "current_rank": 13,
+      "wins": 148,
+      "losses": 164,
+      "ties": 33
+    },
+    {
+      "id": "sheatriptease-bangeliers",
+      "name": "Sheatriptease Bangeliers",
+      "current_rank": 14,
+      "wins": 150,
+      "losses": 171,
+      "ties": 24
+    },
+    {
+      "id": "springfield-isotopes",
+      "name": "Springfield Isotopes",
+      "current_rank": 15,
+      "wins": 149,
+      "losses": 171,
+      "ties": 25
+    },
+    {
+      "id": "baseball-furries",
+      "name": "Baseball Furries",
+      "current_rank": 16,
+      "wins": 144,
+      "losses": 171,
+      "ties": 30
+    }
+  ]
+}

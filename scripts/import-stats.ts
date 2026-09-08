@@ -29,7 +29,7 @@ async function main() {
   const knownTeamIds = await fetchKnownTeamIds(db);
   const maxWeek = LEAGUE_CONFIG.rounds[LEAGUE_CONFIG.rounds.length - 1].week;
 
-  const ratioColumns = ["avg", "era", "whip"].filter((slug) =>
+  const ratioColumns = ["avg"].filter((slug) =>
     Object.hasOwn(rows[0] ?? {}, slug),
   );
 

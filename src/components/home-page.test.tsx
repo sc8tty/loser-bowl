@@ -81,6 +81,7 @@ describe("HomePage phase rendering", () => {
       status: "ready",
       phase: "race",
       lastSuccessAt: new Date("2026-09-08T18:30:00.000Z"),
+      lastUpdatedAt: new Date("2026-09-08T18:30:00.000Z"),
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [],
     });
@@ -96,6 +97,7 @@ describe("HomePage phase rendering", () => {
       status: "ready",
       phase: "bracket",
       lastSuccessAt: new Date("2026-09-08T18:30:00.000Z"),
+      lastUpdatedAt: new Date("2026-09-08T18:30:00.000Z"),
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [matchup()],
     });
@@ -115,6 +117,7 @@ describe("HomePage phase rendering", () => {
       status: "ready",
       phase: "champion",
       lastSuccessAt: new Date("2026-09-29T18:30:00.000Z"),
+      lastUpdatedAt: new Date("2026-09-29T18:30:00.000Z"),
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [
         matchup({
