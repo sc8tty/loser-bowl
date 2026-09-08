@@ -1,17 +1,20 @@
 import "server-only";
 
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { after } from "next/server";
 
+import type { StatCategory } from "@/config/categories.seed";
 import { LEAGUE_CONFIG } from "@/config/league";
 import { getDb, MissingDatabaseUrlError } from "@/db";
 import {
   leagueSettings,
   matchups,
+  statLines,
   syncRuns,
   syncState,
   teams as teamsTable,
 } from "@/db/schema";
+import { computeLiveTally } from "@/lib/bracket/liveTally";
 import { phase, type BracketPhase } from "@/lib/bracket/phase";
 import { decideSeedLock } from "@/lib/bracket/seedLockProcessor";
 import {
@@ -19,6 +22,7 @@ import {
   parseComputedTally,
   toDecidedBy,
   toPublicMatchupId,
+  type PublicLiveTally,
   type PublicMatchup,
   type PublicMatchupId,
   type PublicStatCategory,
@@ -110,6 +114,65 @@ type TeamRow = {
 
 type MatchupRow = typeof matchups.$inferSelect;
 
+type StatLineRow = {
+  teamId: string;
+  week: number;
+  stats: Record<string, unknown>;
+  syncedAt: Date | null;
+};
+
+type LiveTallyContext = {
+  statLines: readonly StatLineRow[];
+  statCategories: readonly StatCategory[] | null;
+  now: Date;
+};
+
+const BOWL_WEEKS: number[] = LEAGUE_CONFIG.rounds.map((round) => round.week);
+
+/**
+ * "Updated" must mean the data changed. Every visit-triggered sync logs a
+ * success row even when its source wrote nothing (a no-op every ~30 min in
+ * bracket phase), so only data-writing runs count: the import scripts
+ * (trigger "backfill") and engine runs whose detail says wroteData.
+ */
+const dataChangingSuccessRun = and(
+  eq(syncRuns.status, "success"),
+  or(
+    eq(syncRuns.trigger, "backfill"),
+    sql`${syncRuns.detail}->>'wroteData' = 'true'`,
+  ),
+);
+
+function liveTallyFor(
+  matchup: MatchupRow,
+  context: LiveTallyContext,
+): PublicLiveTally | null {
+  if (context.statCategories === null) {
+    return null;
+  }
+
+  try {
+    return computeLiveTally({
+      matchup: {
+        round: toPublicRound(matchup.round),
+        week: matchup.week,
+        status: matchup.status,
+        highTeamId: matchup.highTeamId,
+        lowTeamId: matchup.lowTeamId,
+      },
+      statLines: context.statLines,
+      leagueSettings: { statCategories: context.statCategories },
+      now: context.now,
+    });
+  } catch (error) {
+    // A malformed imported value must not take the public page down; the
+    // engine's final-mode compute still refuses it loudly at week close.
+    console.warn(`live tally skipped for matchup ${matchup.id}:`, error);
+
+    return null;
+  }
+}
+
 function isMissingRelation(error: unknown): boolean {
   const code =
     typeof error === "object" && error !== null && "code" in error
@@ -162,6 +225,7 @@ function teamRef(
 function publicMatchups(
   matchupRows: readonly MatchupRow[],
   teamRows: readonly TeamRow[],
+  liveContext: LiveTallyContext,
 ): PublicMatchup[] {
   const teamsById = new Map(
     teamRows.map((team) => [
@@ -193,6 +257,7 @@ function publicMatchups(
         computedWinner: teamRef(matchup.computedWinnerTeamId, teamsById),
         overrideWinner: teamRef(matchup.overrideWinnerTeamId, teamsById),
         computedTally: parseComputedTally(matchup.computedTally),
+        liveTally: liveTallyFor(matchup, liveContext),
         decidedBy: toDecidedBy(matchup.decidedBy),
         lockedAt: matchup.lockedAt,
         settledAt: matchup.settledAt,
@@ -265,30 +330,50 @@ export async function getLeagueData(
   try {
     const db = getDb();
 
-    const [teamRows, stateRows, matchupRows, lastSuccessfulRunRows] =
-      await Promise.all([
-        db
-          .select({
-            id: teamsTable.id,
-            name: teamsTable.name,
-            currentRank: teamsTable.currentRank,
-            finalSeed: teamsTable.finalSeed,
-            outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
-          })
-          .from(teamsTable)
-          .orderBy(asc(teamsTable.currentRank)),
-        db.select().from(syncState).where(eq(syncState.id, 1)),
-        db
-          .select()
-          .from(matchups)
-          .orderBy(asc(matchups.round), asc(matchups.id)),
-        db
-          .select({ finishedAt: syncRuns.finishedAt })
-          .from(syncRuns)
-          .where(eq(syncRuns.status, "success"))
-          .orderBy(desc(syncRuns.finishedAt))
-          .limit(1),
-      ]);
+    const [
+      teamRows,
+      stateRows,
+      matchupRows,
+      lastSuccessfulRunRows,
+      statLineRows,
+      settingsRows,
+    ] = await Promise.all([
+      db
+        .select({
+          id: teamsTable.id,
+          name: teamsTable.name,
+          currentRank: teamsTable.currentRank,
+          finalSeed: teamsTable.finalSeed,
+          outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
+        })
+        .from(teamsTable)
+        .orderBy(asc(teamsTable.currentRank)),
+      db.select().from(syncState).where(eq(syncState.id, 1)),
+      db
+        .select()
+        .from(matchups)
+        .orderBy(asc(matchups.round), asc(matchups.id)),
+      db
+        .select({ finishedAt: syncRuns.finishedAt })
+        .from(syncRuns)
+        .where(dataChangingSuccessRun)
+        .orderBy(desc(syncRuns.finishedAt))
+        .limit(1),
+      db
+        .select({
+          teamId: statLines.teamId,
+          week: statLines.week,
+          stats: statLines.stats,
+          syncedAt: statLines.syncedAt,
+        })
+        .from(statLines)
+        .where(inArray(statLines.week, BOWL_WEEKS)),
+      db
+        .select({ statCategories: leagueSettings.statCategories })
+        .from(leagueSettings)
+        .where(eq(leagueSettings.season, LEAGUE_CONFIG.season))
+        .limit(1),
+    ]);
 
     if (teamRows.length === 0) {
       return {
@@ -331,7 +416,11 @@ export async function getLeagueData(
       phase: currentPhase,
       lastSuccessAt,
       lastUpdatedAt,
-      matchups: publicMatchups(matchupRows, teamRows),
+      matchups: publicMatchups(matchupRows, teamRows, {
+        statLines: statLineRows,
+        statCategories: settingsRows[0]?.statCategories ?? null,
+        now,
+      }),
       teams: teamRows.map((row) => ({
         id: row.id,
         name: row.name,
@@ -377,30 +466,40 @@ export async function getMatchupDetailData(
 
   try {
     const db = getDb();
-    const [teamRows, stateRows, matchupRows, settingsRows] = await Promise.all([
-      db
-        .select({
-          id: teamsTable.id,
-          name: teamsTable.name,
-          currentRank: teamsTable.currentRank,
-          finalSeed: teamsTable.finalSeed,
-          outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
-        })
-        .from(teamsTable)
-        .orderBy(asc(teamsTable.currentRank)),
-      db.select().from(syncState).where(eq(syncState.id, 1)),
-      db
-        .select()
-        .from(matchups)
-        .orderBy(asc(matchups.round), asc(matchups.id)),
-      db
-        .select({
-          statCategories: leagueSettings.statCategories,
-        })
-        .from(leagueSettings)
-        .where(eq(leagueSettings.season, LEAGUE_CONFIG.season))
-        .limit(1),
-    ]);
+    const [teamRows, stateRows, matchupRows, settingsRows, statLineRows] =
+      await Promise.all([
+        db
+          .select({
+            id: teamsTable.id,
+            name: teamsTable.name,
+            currentRank: teamsTable.currentRank,
+            finalSeed: teamsTable.finalSeed,
+            outcomeTotals: teamsTable.regularSeasonOutcomeTotals,
+          })
+          .from(teamsTable)
+          .orderBy(asc(teamsTable.currentRank)),
+        db.select().from(syncState).where(eq(syncState.id, 1)),
+        db
+          .select()
+          .from(matchups)
+          .orderBy(asc(matchups.round), asc(matchups.id)),
+        db
+          .select({
+            statCategories: leagueSettings.statCategories,
+          })
+          .from(leagueSettings)
+          .where(eq(leagueSettings.season, LEAGUE_CONFIG.season))
+          .limit(1),
+        db
+          .select({
+            teamId: statLines.teamId,
+            week: statLines.week,
+            stats: statLines.stats,
+            syncedAt: statLines.syncedAt,
+          })
+          .from(statLines)
+          .where(inArray(statLines.week, BOWL_WEEKS)),
+      ]);
 
     if (teamRows.length === 0) {
       return {
@@ -432,10 +531,14 @@ export async function getMatchupDetailData(
       now,
     });
 
-    const matchupsForPublic = publicMatchups(matchupRows, teamRows);
+    const statCategories = settingsRows[0]?.statCategories ?? [];
+    const matchupsForPublic = publicMatchups(matchupRows, teamRows, {
+      statLines: statLineRows,
+      statCategories: settingsRows[0]?.statCategories ?? null,
+      now,
+    });
     const matchup =
       matchupsForPublic.find((candidate) => candidate.id === id) ?? null;
-    const statCategories = settingsRows[0]?.statCategories ?? [];
 
     if (matchup === null) {
       return {

@@ -200,6 +200,8 @@ export async function logSyncRun(
       script: options.script,
       rowCount: options.rowCount,
       dryRun: options.dryRun,
+      // The public "Updated" reads only data-writing runs (trigger.ts).
+      wroteData: options.status === "success",
     },
   });
 }

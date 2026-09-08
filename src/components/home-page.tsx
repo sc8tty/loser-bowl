@@ -31,6 +31,21 @@ export function formatUpdatedAgo(lastSuccessAt: Date | null, now: Date): string 
   return hours < 48 ? `${hours} h ago` : `${Math.round(hours / 24)} d ago`;
 }
 
+export function formatUpdatedStamp(date: Date | null): string | null {
+  if (date === null) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: LEAGUE_CONFIG.timeZone,
+    timeZoneName: "short",
+  }).format(date);
+}
+
 function formatMonthDay(date: string) {
   const [year, month, day] = date.split("-").map(Number);
 
@@ -62,6 +77,7 @@ function pageTitle(data: LeagueData): string {
 
 export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
   const updatedAgo = formatUpdatedAgo(data.lastUpdatedAt, now);
+  const updatedStamp = formatUpdatedStamp(data.lastUpdatedAt);
 
   return (
     <div className="min-h-screen bg-stone-100 text-stone-950">
@@ -91,6 +107,9 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
             <div>
               <span className="font-semibold text-white">Updated</span>{" "}
               {updatedAgo}
+              {updatedStamp ? (
+                <span className="text-stone-400"> · {updatedStamp}</span>
+              ) : null}
             </div>
           </div>
         </div>

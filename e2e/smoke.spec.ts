@@ -13,15 +13,14 @@ test("race phase renders standings, lock countdown, and projected pairings", asy
 }) => {
   await page.goto("/");
 
+  await expect(page.getByRole("banner").getByText("Race to the Bottom")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Race to the Bottom" }),
+    page.getByRole("heading", { name: "Lander's League Loser Bowl", level: 1 }),
   ).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Current Standings" }),
+    page.getByRole("heading", { name: "Regular Season Standings" }),
   ).toBeVisible();
-  await expect(
-    page.getByText(/days until lock|Locks today|Locks tomorrow/),
-  ).toBeVisible();
+  await expect(page.getByRole("banner").getByText(/Bowl weeks/)).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Round 1 Pairings" }),
   ).toBeVisible();
@@ -32,8 +31,9 @@ test("race phase renders standings, lock countdown, and projected pairings", asy
 test("bracket phase renders mixed matchup states and TBD slots", async ({ page }) => {
   await gotoScenario(page, "bracket");
 
+  await expect(page.getByRole("banner").getByText("Loser Bowl Bracket")).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Loser Bowl Bracket", level: 1 }),
+    page.getByRole("heading", { name: "Loser Bowl Bracket", level: 2 }),
   ).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Round 1", exact: true }),
@@ -57,9 +57,7 @@ test("champion phase renders winner, final link, and final detail page", async (
 }) => {
   await gotoScenario(page, "champion");
 
-  await expect(
-    page.getByRole("heading", { name: "Champion Crowned" }),
-  ).toBeVisible();
+  await expect(page.getByRole("banner").getByText("Champion Crowned")).toBeVisible();
   await expect(page.getByText("E2E Team 16").first()).toBeVisible();
   await expect(page.getByText("Final settled")).toBeVisible();
   await expect(

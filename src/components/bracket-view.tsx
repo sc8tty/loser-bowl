@@ -4,6 +4,8 @@ import {
   buildBracketSlots,
   effectiveWinner,
   formatTally,
+  isLiveMatchup,
+  liveLeader,
   matchupMeta,
   matchupStatusView,
   roundLabel,
@@ -43,7 +45,8 @@ export function StatusBadge({
   matchup,
   upstreamUnderReview = false,
 }: {
-  matchup: Pick<PublicMatchup, "status">;
+  matchup: Pick<PublicMatchup, "status"> &
+    Partial<Pick<PublicMatchup, "computedTally" | "liveTally">>;
   upstreamUnderReview?: boolean;
 }) {
   const status = matchupStatusView(matchup, upstreamUnderReview);
@@ -104,6 +107,8 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
   const status = matchupStatusView(slot, slot.upstreamUnderReview);
   const winner = slot.status === "under_review" ? null : effectiveWinner(slot);
   const tally = formatTally(slot);
+  const live = isLiveMatchup(slot);
+  const leader = live ? liveLeader(slot) : null;
 
   return (
     <article
@@ -153,11 +158,18 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
           <span className="font-mono font-black text-stone-900">{slot.week}</span>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold text-stone-500">Tally</span>
+          <span className="font-semibold text-stone-500">
+            {live ? "Live tally" : "Tally"}
+          </span>
           <span className="font-mono font-black text-stone-900">
             {tally ?? "Not computed"}
           </span>
         </div>
+        {live && tally !== null ? (
+          <div className="-mt-1 text-right text-xs font-semibold text-rose-900">
+            {leader === null ? "Tied" : `${leader.name} leads`}
+          </div>
+        ) : null}
         {slot.overrideWinner ? (
           <div className="border border-amber-300 bg-amber-50 px-3 py-2">
             <div className="text-xs font-black uppercase text-amber-900">

@@ -9,6 +9,7 @@ import {
   formatDecidedBy,
   formatTally,
   hasUpstreamReview,
+  isLiveMatchup,
   matchupMeta,
   matchupStatusView,
   resultExplanation,
@@ -86,7 +87,9 @@ function Header({
             <span className="font-semibold text-white">Week</span> {matchup.week}
           </div>
           <div>
-            <span className="font-semibold text-white">Tally</span>{" "}
+            <span className="font-semibold text-white">
+              {isLiveMatchup(matchup) ? "Live tally" : "Tally"}
+            </span>{" "}
             {formatTally(matchup) ?? "Not computed"}
           </div>
         </div>
@@ -282,6 +285,12 @@ function ResultSummary({ matchup }: { matchup: PublicMatchup }) {
         <p className="text-sm font-semibold text-stone-800">
           {resultExplanation(matchup)}
         </p>
+        {isLiveMatchup(matchup) && matchup.liveTally !== null ? (
+          <p className="mt-2 text-xs font-semibold text-stone-500">
+            Stats as of {formatDateTime(matchup.liveTally.asOf)}. The
+            innings-pitched minimum is applied when the week closes, not here.
+          </p>
+        ) : null}
         {decidedBy ? (
           <p className="mt-2 text-xs font-black uppercase text-stone-500">
             Decided by {decidedBy}

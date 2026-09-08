@@ -3,12 +3,16 @@ import { describe, expect, it } from "vitest";
 import {
   buildBracketSlots,
   categoryStatLines,
+  displayTally,
   formatDecidedBy,
   formatTally,
+  isLiveMatchup,
+  liveLeader,
   matchupStatusView,
   parseComputedTally,
   resultExplanation,
   type PublicComputedTally,
+  type PublicLiveTally,
   type PublicMatchup,
   type PublicTeamRef,
 } from "./matchups";
@@ -76,6 +80,7 @@ function matchup(
     computedWinner: highTeam,
     overrideWinner: null,
     computedTally: tally,
+    liveTally: null,
     decidedBy: "categories",
     lockedAt: new Date("2026-09-14T06:00:00.000Z"),
     settledAt: new Date("2026-09-15T06:00:00.000Z"),
@@ -211,6 +216,95 @@ describe("public matchup helpers", () => {
     );
     expect(resultExplanation(matchup({ computedTally: null }))).toBe(
       "Result not yet computed.",
+    );
+  });
+});
+
+describe("live tally (manual-mode mid-week view)", () => {
+  const liveTally: PublicLiveTally = {
+    teamAId: highTeam.id,
+    teamBId: lowTeam.id,
+    teamAWins: 4,
+    teamBWins: 6,
+    tiedCategories: 5,
+    categoryWinner: "teamB",
+    leaderTeamId: lowTeam.id,
+    asOf: new Date("2026-09-08T01:00:00.000Z"),
+    categories: [
+      { slug: "hr", winner: "teamA", teamAValue: 8, teamBValue: 5 },
+      { slug: "era", winner: "teamB", teamAValue: 4.1, teamBValue: 3.21 },
+      { slug: "whip", winner: "tie", teamAValue: null, teamBValue: 1.2 },
+    ],
+  };
+
+  function liveMatchup(overrides: Partial<PublicMatchup> = {}): PublicMatchup {
+    return matchup({
+      status: "pending",
+      computedWinner: null,
+      computedTally: null,
+      decidedBy: null,
+      lockedAt: null,
+      settledAt: null,
+      liveTally,
+      ...overrides,
+    });
+  }
+
+  it("treats a pending matchup with a live tally as live", () => {
+    expect(isLiveMatchup(liveMatchup())).toBe(true);
+    expect(isLiveMatchup(liveMatchup({ liveTally: null }))).toBe(false);
+    expect(matchupStatusView(liveMatchup())).toMatchObject({
+      label: "live",
+      tone: "rose",
+    });
+    expect(matchupStatusView({ status: "pending" })).toMatchObject({
+      label: "pending",
+    });
+  });
+
+  it("renders the live tally and stat lines high-low like a computed one", () => {
+    expect(displayTally(liveMatchup())?.kind).toBe("live");
+    expect(formatTally(liveMatchup())).toBe("4-6-5");
+
+    const rows = categoryStatLines(liveMatchup(), [
+      { slug: "hr", display_name: "HR", is_only_display_stat: false },
+      { slug: "era", display_name: "ERA", is_only_display_stat: false },
+      { slug: "whip", display_name: "WHIP", is_only_display_stat: false },
+    ]);
+
+    expect(rows.map((row) => [row.label, row.highValue, row.lowValue, row.winner])).toEqual([
+      ["HR", "8", "5", "high"],
+      ["ERA", "4.10", "3.21", "low"],
+      ["WHIP", "-", "1.20", "tie"],
+    ]);
+  });
+
+  it("prefers the engine's computed tally when both exist", () => {
+    const decided = matchup({ status: "provisional", liveTally });
+
+    expect(displayTally(decided)?.kind).toBe("computed");
+    expect(formatTally(decided)).toBe("5-4-1");
+    expect(isLiveMatchup(decided)).toBe(false);
+  });
+
+  it("names the leader, or nobody on a category tie", () => {
+    expect(liveLeader(liveMatchup())?.id).toBe(lowTeam.id);
+    expect(
+      liveLeader(
+        liveMatchup({ liveTally: { ...liveTally, leaderTeamId: null } }),
+      ),
+    ).toBeNull();
+    expect(resultExplanation(liveMatchup())).toBe(
+      "Live: Sixteen Candles leads 4-6-5. Updates with each stats import; nothing is decided until the week closes.",
+    );
+    expect(
+      resultExplanation(
+        liveMatchup({
+          liveTally: { ...liveTally, teamAWins: 5, teamBWins: 5, categoryWinner: "tie", leaderTeamId: null },
+        }),
+      ),
+    ).toBe(
+      "Live: tied 5-5-5. Updates with each stats import; nothing is decided until the week closes.",
     );
   });
 });

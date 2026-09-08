@@ -1,4 +1,62 @@
-# Status (as of 2026-09-07, end of session)
+# Status (as of 2026-09-07, late evening — second session, Fott Book)
+
+## Live mid-week tallies are on the site — every stats import now updates the bracket
+The gap after the first 2026-09-07 session: the engine only computes a matchup once its
+week closes, so all week the bracket read "pending / Tally: Not computed" even with real
+Week 24 stat lines in the database. Fixed this session with a **read-time, display-only
+live tally** — no DB writes, no state-machine involvement:
+- **`src/lib/bracket/liveTally.ts`** (pure, unit-tested): for a `pending`/`live` matchup
+  with both teams assigned whose bowl week has started (league time), compares the two
+  teams' `stat_lines` for that week with `compareWeek` in `live` mode. Reports category
+  wins/losses/ties and a `leaderTeamId` (null on a tie). It decides nothing — no
+  tiebreakers, no winner, nothing persisted. Stays visible after the week ends until the
+  engine records the provisional result, always labelled "live".
+- **Skips the innings-pitched minimum on purpose.** The 24-IP rule is a week-close rule; on
+  day one every team is below it and the final-mode policy would force ERA/WHIP ties in
+  every matchup all week. Yahoo's own live matchup page compares the ratios as-is, so this
+  matches what league members see there. The engine's final-mode compute at week close is
+  untouched and still enforces it.
+- **`src/lib/public/matchups.ts`**: `PublicMatchup.liveTally` (never populated alongside
+  `computedTally`), `displayTally()` (engine result always wins), `isLiveMatchup()`,
+  `liveLeader()`. `tallyParts`/`formatTally`/`categoryStatLines` render either kind, so
+  the bracket card, matchup header, "Running Tally" panel, and the full category box score
+  all work mid-week. Status badge shows "live" for a pending matchup with a live tally.
+- **`src/lib/sync/trigger.ts`** loads bowl-week `stat_lines` + league settings alongside
+  the existing queries and attaches the live tally per matchup. A malformed stat value is
+  caught and logged rather than taking the page down.
+- **UI**: card shows "Live tally 7-5-3" plus "<team> leads" / "Tied"; detail page adds
+  "Stats as of <time>. The innings-pitched minimum is applied when the week closes."
+- **`npm run import:stats`** now prints the resulting live tallies for every bowl matchup
+  right after a successful import (same computation the site renders), so a transcription
+  slip is visible in the terminal before anyone sees it. This needed explicit `.ts`
+  extensions on two relative imports (`liveTally.ts`, `comparator.ts` → `./parsers.ts`)
+  because plain `node --experimental-strip-types` has no extensionless resolution;
+  tsconfig already had `allowImportingTsExtensions`. Next (Turbopack + webpack) and vitest
+  are fine with it.
+
+### Also fixed: "Updated" was advancing on no-op visit syncs
+`lastUpdatedAt` took the newest `sync_runs` success row of any kind. In bracket phase the
+visit-triggered sync runs every ~30 min and logs a success row even when its source wrote
+nothing, so the site read "Updated N min ago" indefinitely regardless of data. Now only
+data-writing runs count: import scripts (trigger `backfill`, which now also log
+`detail.wroteData: true`) and engine runs whose `detail.wroteData` is true. The header also
+shows the absolute stamp ("34 min ago · Sep 7, 5:42 PM PDT").
+
+### Codex CLI is installed on Fott Book
+`@openai/codex` installed globally this session (v0.153.4, already authenticated via the
+ChatGPT subscription). Used for a fresh-context review of this diff before deploy — see
+`docs/review-log.md` if findings were logged. Configured model in `~/.codex/config.toml`
+is `gpt-5.4`; override per run with `codex exec -m <model>`.
+
+### The manual-mode loop is now: scrape → CSV → import → site is current
+No extra step. After `npm run import:stats -- path/to.csv` succeeds, the live site
+(dynamic rendering, no cache) shows the new tallies and "Updated just now" on the next
+request. The pre-existing `tsc` errors in `comparator.test.ts` (`display_name` on
+`WeekStatCategory`, five of them) predate this session and are test-only.
+
+---
+
+# Previous status (as of 2026-09-07, end of first session)
 
 ## Manual mode is now live — playoffs started, Yahoo access never came through
 Yahoo Fantasy API access has not been approved as of this session (see External section) —
@@ -125,9 +183,10 @@ Until Yahoo access lands (if it ever does), the weekly cadence is:
    K/9) should be transcribed as literal `-` (Yahoo's own "undefined at 0 IP" placeholder).
 4. `npm run import:stats -- --dry-run path/to.csv` to validate, then without `--dry-run` to
    commit it.
-5. The bracket's own computed tally only updates once a round actually closes (see the
-   matchup-compute note above) — there's no live in-app tracking yet, so don't expect
-   "Tally" to move mid-week even with fresh imports.
+5. ~~No live in-app tracking~~ — superseded: since the second 2026-09-07 session the
+   bracket shows a live tally from the imported stat lines immediately (see top of this
+   doc). The engine's own computed tally (provisional → final) still only lands once the
+   round closes.
 6. `import-standings.ts` and `import-regular-season-matchups.ts` exist for the tiebreaker
    data (season category win totals, head-to-head results) but weren't exercised this
    session — the Schedule tab (per-team, 23-week list of opponent/result/score) is the source

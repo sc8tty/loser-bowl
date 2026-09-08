@@ -43,6 +43,30 @@ export type PublicComputedTally = {
   categories: PublicComparedCategory[];
 };
 
+/**
+ * Display-only mid-week comparison built at read time from imported stat
+ * lines (src/lib/bracket/liveTally.ts). It decides nothing: no tiebreakers,
+ * no winner, no state transition — `leaderTeamId` is null on a category tie.
+ */
+export type PublicLiveTally = {
+  teamAId: string;
+  teamBId: string;
+  teamAWins: number;
+  teamBWins: number;
+  tiedCategories: number;
+  categoryWinner: "teamA" | "teamB" | "tie";
+  leaderTeamId: string | null;
+  categories: PublicComparedCategory[];
+  /** Newest synced_at across the two stat lines, when known. */
+  asOf: Date | null;
+};
+
+/** The shared shape every tally renderer reads — engine-computed or live. */
+export type PublicTallyLike = Pick<
+  PublicComputedTally,
+  "teamAId" | "teamBId" | "teamAWins" | "teamBWins" | "tiedCategories" | "categories"
+>;
+
 export type PublicMatchup = {
   id: PublicMatchupId;
   round: 1 | 2 | 3;
@@ -53,6 +77,9 @@ export type PublicMatchup = {
   computedWinner: PublicTeamRef | null;
   overrideWinner: PublicTeamRef | null;
   computedTally: PublicComputedTally | null;
+  // Never populated alongside computedTally: once the engine records a result
+  // the matchup leaves pending/live and the live view stops.
+  liveTally: PublicLiveTally | null;
   decidedBy: DecidedBy | null;
   lockedAt: Date | null;
   settledAt: Date | null;
@@ -160,6 +187,7 @@ export function emptyPublicMatchup(id: PublicMatchupId): PublicMatchup {
     computedWinner: null,
     overrideWinner: null,
     computedTally: null,
+    liveTally: null,
     decidedBy: null,
     lockedAt: null,
     settledAt: null,
@@ -202,6 +230,60 @@ export function effectiveWinner(
   matchup: Pick<PublicMatchup, "computedWinner" | "overrideWinner">,
 ): PublicTeamRef | null {
   return matchup.overrideWinner ?? matchup.computedWinner;
+}
+
+/** Engine result wins over the live view whenever both could exist. */
+export function displayTally(
+  matchup: Pick<PublicMatchup, "computedTally" | "liveTally">,
+): { tally: PublicTallyLike; kind: "computed" | "live" } | null {
+  if (matchup.computedTally !== null) {
+    return { tally: matchup.computedTally, kind: "computed" };
+  }
+
+  if (matchup.liveTally !== null) {
+    return { tally: matchup.liveTally, kind: "live" };
+  }
+
+  return null;
+}
+
+/**
+ * "Live" is either the engine's own live status or a pending matchup whose
+ * week is under way with imported stats to compare (manual mode).
+ */
+export function isLiveMatchup(
+  matchup: Pick<PublicMatchup, "status"> &
+    Partial<Pick<PublicMatchup, "computedTally" | "liveTally">>,
+): boolean {
+  if (matchup.status === "live") {
+    return true;
+  }
+
+  return (
+    matchup.status === "pending" &&
+    (matchup.computedTally ?? null) === null &&
+    (matchup.liveTally ?? null) !== null
+  );
+}
+
+export function liveLeader(
+  matchup: Pick<PublicMatchup, "liveTally" | "highTeam" | "lowTeam">,
+): PublicTeamRef | null {
+  const leaderId = matchup.liveTally?.leaderTeamId ?? null;
+
+  if (leaderId === null) {
+    return null;
+  }
+
+  if (matchup.highTeam?.id === leaderId) {
+    return matchup.highTeam;
+  }
+
+  if (matchup.lowTeam?.id === leaderId) {
+    return matchup.lowTeam;
+  }
+
+  return null;
 }
 
 export function formatDecidedBy(decidedBy: DecidedBy | string | null): string | null {
@@ -331,7 +413,7 @@ export function parseComputedTally(value: unknown): PublicComputedTally | null {
 }
 
 function sideForTeam(
-  tally: PublicComputedTally,
+  tally: PublicTallyLike,
   teamId: string | null | undefined,
 ): "teamA" | "teamB" | null {
   if (teamId === tally.teamAId) {
@@ -346,9 +428,12 @@ function sideForTeam(
 }
 
 export function tallyParts(
-  matchup: Pick<PublicMatchup, "computedTally" | "highTeam" | "lowTeam">,
+  matchup: Pick<
+    PublicMatchup,
+    "computedTally" | "liveTally" | "highTeam" | "lowTeam"
+  >,
 ): { highWins: number; lowWins: number; ties: number } | null {
-  const tally = matchup.computedTally;
+  const tally = displayTally(matchup)?.tally ?? null;
 
   if (tally === null) {
     return null;
@@ -373,7 +458,10 @@ export function tallyParts(
 }
 
 export function formatTally(
-  matchup: Pick<PublicMatchup, "computedTally" | "highTeam" | "lowTeam">,
+  matchup: Pick<
+    PublicMatchup,
+    "computedTally" | "liveTally" | "highTeam" | "lowTeam"
+  >,
 ): string | null {
   const parts = tallyParts(matchup);
 
@@ -411,10 +499,13 @@ function policyLabel(policy: string | undefined): string | null {
 }
 
 export function categoryStatLines(
-  matchup: Pick<PublicMatchup, "computedTally" | "highTeam" | "lowTeam">,
+  matchup: Pick<
+    PublicMatchup,
+    "computedTally" | "liveTally" | "highTeam" | "lowTeam"
+  >,
   statCategories: readonly PublicStatCategory[],
 ): CategoryStatLine[] {
-  const tally = matchup.computedTally;
+  const tally = displayTally(matchup)?.tally ?? null;
 
   if (tally === null) {
     return [];
@@ -452,7 +543,8 @@ export function categoryStatLines(
 }
 
 export function matchupStatusView(
-  matchup: Pick<PublicMatchup, "status">,
+  matchup: Pick<PublicMatchup, "status"> &
+    Partial<Pick<PublicMatchup, "computedTally" | "liveTally">>,
   upstreamUnderReview = false,
 ): {
   label: string;
@@ -479,7 +571,7 @@ export function matchupStatusView(
     };
   }
 
-  if (matchup.status === "live") {
+  if (isLiveMatchup(matchup)) {
     return {
       label: "live",
       tone: "rose",
@@ -517,7 +609,14 @@ export function matchupStatusView(
 export function resultExplanation(
   matchup: Pick<
     PublicMatchup,
-    "status" | "computedTally" | "computedWinner" | "overrideWinner" | "decidedBy"
+    | "status"
+    | "computedTally"
+    | "liveTally"
+    | "computedWinner"
+    | "overrideWinner"
+    | "decidedBy"
+    | "highTeam"
+    | "lowTeam"
   >,
 ): string {
   const winner = effectiveWinner(matchup);
@@ -526,6 +625,15 @@ export function resultExplanation(
 
   if (matchup.status === "under_review") {
     return "Commissioner review: a stat correction is being reviewed, so this result and its downstream branch are paused.";
+  }
+
+  if (matchup.computedTally === null && matchup.liveTally !== null) {
+    const leader = liveLeader(matchup);
+    const score = formatTally(matchup);
+    const lead =
+      leader === null ? `Live: tied ${score}.` : `Live: ${leader.name} leads ${score}.`;
+
+    return `${lead} Updates with each stats import; nothing is decided until the week closes.`;
   }
 
   if (matchup.computedTally === null || winner === null) {

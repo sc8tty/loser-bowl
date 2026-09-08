@@ -2,7 +2,7 @@ import {
   parseCompositeFraction,
   parseInningsPitched,
   parseRatio,
-} from "./parsers";
+} from "./parsers.ts";
 
 export type WeekStatCategory = {
   slug: string;

@@ -60,6 +60,7 @@ function matchup(overrides: Partial<PublicMatchup> = {}): PublicMatchup {
     computedWinner: highTeam,
     overrideWinner: null,
     computedTally: computedTally(highTeam, lowTeam),
+    liveTally: null,
     decidedBy: "categories",
     lockedAt: new Date("2026-09-14T06:00:00.000Z"),
     settledAt: new Date("2026-09-15T06:00:00.000Z"),
@@ -137,5 +138,47 @@ describe("HomePage phase rendering", () => {
     expect(html).toContain("Team 9");
     expect(html).toContain("View the full bracket");
     expect(html).toContain("Full Bracket");
+  });
+});
+
+describe("HomePage live tally cards", () => {
+  it("shows the live tally, leader, and live badge for an in-progress matchup", () => {
+    const highTeam = publicTeam(9);
+    const lowTeam = publicTeam(16);
+    const html = render({
+      status: "ready",
+      phase: "bracket",
+      teams: [leagueTeam(9), leagueTeam(16)],
+      lastSuccessAt: null,
+      lastUpdatedAt: new Date("2026-09-08T18:45:00.000Z"),
+      matchups: [
+        matchup({
+          status: "pending",
+          computedWinner: null,
+          computedTally: null,
+          decidedBy: null,
+          lockedAt: null,
+          settledAt: null,
+          liveTally: {
+            teamAId: highTeam.id,
+            teamBId: lowTeam.id,
+            teamAWins: 7,
+            teamBWins: 5,
+            tiedCategories: 3,
+            categoryWinner: "teamA",
+            leaderTeamId: highTeam.id,
+            asOf: new Date("2026-09-08T18:40:00.000Z"),
+            categories: [],
+          },
+        }),
+      ],
+    });
+
+    expect(html).toContain("Live tally");
+    expect(html).toContain("7-5-3");
+    expect(html).toContain("Team 9 leads");
+    expect(html).toContain(">live<");
+    expect(html).toContain("15 min ago");
+    expect(html).toContain("Sep 8, 11:45 AM PDT");
   });
 });

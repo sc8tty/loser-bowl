@@ -249,6 +249,7 @@ function buildMatchup(
         ? null
         : teamForSeed(spec.overrideWinnerSeed),
     computedTally,
+    liveTally: null,
     decidedBy: computedTally?.decidedBy ?? null,
     lockedAt: spec.lockedAt === undefined ? null : new Date(spec.lockedAt),
     settledAt: spec.settledAt === undefined ? null : new Date(spec.settledAt),

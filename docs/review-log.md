@@ -87,3 +87,19 @@ importer's exact six support slugs rather than aggregate components.
    the six exact slugs the importer consumes, not a paraphrase of them.
 6. **A designed fallback is judged by its ancestry.** "Fallback exists" is not the bar;
    "fallback's entire dependency ancestry avoids the thing it's a fallback for" is.
+
+## 2026-09-07 — Live tally + "Updated" freshness (Codex `gpt-6-astra`, fresh context, read-only sandbox)
+
+Diff reviewed before deploy: read-time live tally (`src/lib/bracket/liveTally.ts`,
+`public/matchups.ts`, `sync/trigger.ts`, bracket/detail UI), the data-writing-runs-only
+`lastUpdatedAt` filter, and the post-import report in `scripts/import-stats.ts`.
+
+- **No P1.** Reviewer independently checked tally orientation, leader selection,
+  league-time round boundaries, the new Drizzle queries, and isolation from the engine's
+  final-mode result (parity above the IP minimum); the plain-Node import chain loads.
+- **P2 (fixed):** the post-import report ran between the upsert and the success
+  `sync_runs` row, so a report-side throw would log the committed import as an error and
+  leave "Updated" stale. Report now runs after the success log inside its own try/catch.
+- **Noted, not fixed:** five pre-existing `tsc` errors in `comparator.test.ts`
+  (`display_name` on `WeekStatCategory`). Reviewer claimed they block `next build`; they
+  don't (Turbopack and webpack builds both passed this session) — test-only noise.
