@@ -46,6 +46,16 @@ link — `/matchup/<id>` still works by URL, just unlinked). Phones: the table s
 the card with a sticky team column; the card needs `min-w-0` or the grid item blows out to
 the table's width (shipped that fix as a follow-up after checking prod at 375px).
 
+**Later the same evening (Scott's design pass, all live):** winning cells are light blue
+(`bg-sky-100`, dark text) instead of a dark fill; seed boxes removed everywhere (seed is in
+the subline); the "Bracket / Loser Bowl Bracket" section heading, the per-card label bar,
+the "live" badge, and the per-card explanation strip are all gone (a decided
+provisional/final/under-review badge sits under the score instead); the header eyebrow says
+"Race to the Bottom" through the bracket phase. **Team avatars:** `src/config/avatars.ts`
+hotlinks each bowl team's Yahoo logo, read from `img[alt="Team logo"]` on the team page
+(public CDN, verified with an anonymous fetch). If a manager changes their logo on Yahoo,
+re-read that page and update the map; if Yahoo ever 404s one, the card just drops the image.
+
 ### Also fixed: "Updated" was advancing on no-op visit syncs
 `lastUpdatedAt` took the newest `sync_runs` success row of any kind. In bracket phase the
 visit-triggered sync runs every ~30 min and logs a success row even when its source wrote
