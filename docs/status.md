@@ -170,9 +170,34 @@ end-to-end afterward with a real empty-commit push: Vercel auto-deployed and wen
 
 ## Manual mode — the operational loop going forward
 **Yahoo league URL:** <https://baseball.fantasysports.yahoo.com/league/lander> (Lander's
-League, 2026). Standings tab → each team → Stats tab. Requires a logged-in Yahoo session in
-whatever browser profile is doing the scrape (Scott logs in; Claude never handles the
-credentials).
+League, league ID **16468**, 2026). Requires a logged-in Yahoo session in whatever browser
+profile is doing the scrape (Scott logs in; Claude never handles the credentials).
+
+### Scrape recipe (worked 2026-09-07 from Fott Book, ~4 min for all 8 teams)
+- **Team page = `https://baseball.fantasysports.yahoo.com/b1/16468/<n>`**, Yahoo team numbers
+  for the bowl teams: 12 SLUMP BUSTERS · 3 Eat The Rich · 15 Trout's Honor · 14 Me So
+  Hoerner · 9 You Hang'em We Bang'em · 4 Sheatriptease Bangeliers · 13 Springfield Isotopes ·
+  2 Baseball Furries. (Full map: 1 Seiya Nara Suketto!, 5 Ghost Runners, 6 Gunnars, 7 Hyundai
+  Unicorns, 8 For Whom the Belli Tolls, 10 Momma Bears, 11 O's Before Hoes, 16 XanDiego.)
+- **Date filter is a query string, no clicking:** `?stat1=S&stat2=D` = Today,
+  `?stat1=S&stat2=L7` = Last 7 Days, and `/team?&date=YYYY-MM-DD&stat1=S&stat2=D` = a
+  specific day. There is **no "this week" filter**. Day 1 of a week: Today = week so far.
+  **Last day of a week (Sunday): Last 7 Days = exactly the whole week.** Any other day:
+  sum the per-day pages, or wait for Sunday. (Ratios — OPS/ERA/WHIP/K9 — can't be summed;
+  mid-week multi-day pulls need the per-day counting stats plus a Sunday pull for ratios,
+  or accept Sunday-only imports after day 1.)
+- **Read the numbers from the table footers, not the page text.** `#statTable0` (batters)
+  and `#statTable1` (pitchers) each have a `tfoot` row "Starting Lineup Totals" — that's
+  what Yahoo scores (bench excluded). Cell order after the label: batting
+  `H/AB, R, 2B, 3B, HR, RBI, SB, AVG, OPS`; pitching `IP, W, BB, K, ERA, WHIP, K/9, NSVH`.
+  One-liner that pulls both, run on each team page via the browser JS tool:
+  `const f=id=>[...document.querySelector('#'+id).tFoot.rows[0].cells].map(c=>c.innerText.trim()).filter(x=>x&&x!=='Starting Lineup Totals'); JSON.stringify({bat:f('statTable0'),pit:f('statTable1')})`
+- `/b1/16468/standings` redirects to **Live Standings** (a matchup-projection view with a
+  different table); the real standings are League → Standings on the league home
+  (`?module=standings&lhst=stand`). Team-number map above came from that page's links.
+- Save each pull as `data/stats/week<N>-<date>-<time>pdt.csv` (committed — it's the
+  provenance for what the site showed) and validate offline with the row parser before
+  importing; `npm run import:stats -- --dry-run` needs `DATABASE_URL` just to load settings.
 
 Until Yahoo access lands (if it ever does), the weekly cadence is:
 1. Visit the live Yahoo league site, pull each of the 8 Loser Bowl teams' current stats
