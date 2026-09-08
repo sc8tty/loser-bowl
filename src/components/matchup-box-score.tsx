@@ -193,7 +193,7 @@ export function MatchupBoxScore({
 
   return (
     <article
-      className={`border bg-white ${
+      className={`min-w-0 overflow-hidden border bg-white ${
         slot.status === "under_review" ? "border-rose-700" : "border-stone-300"
       }`}
       aria-labelledby={`${slot.id}-heading`}
