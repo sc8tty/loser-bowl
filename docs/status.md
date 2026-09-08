@@ -34,6 +34,18 @@ live tally** — no DB writes, no state-machine involvement:
   tsconfig already had `allowImportingTsExtensions`. Next (Turbopack + webpack) and vitest
   are fine with it.
 
+### Home page is now Yahoo-style box scores (Scott's design call, same evening)
+`src/components/matchup-box-score.tsx` renders the **current round** (earliest round with
+an undecided matchup; the Final once everything is settled) as full-width cards: seed box,
+team name, "Seed 9 · 157-159-29 | 9th", category-win score "2 vs 6" between the teams, then
+a two-row table `Team | H/AB | R 2B 3B HR RBI SB AVG OPS | IP | W BB K ERA WHIP K/9 NSVH |
+Score`. Winning cell = dark fill, tie = dimmed, `*` marks an innings-minimum decision.
+H/AB and IP come from the raw stat line (`PublicMatchup.highStats/lowStats`), not the tally.
+Other rounds are compact cards at the bottom (no Week/Tally rows, no "Matchup detail"
+link — `/matchup/<id>` still works by URL, just unlinked). Phones: the table scrolls inside
+the card with a sticky team column; the card needs `min-w-0` or the grid item blows out to
+the table's width (shipped that fix as a follow-up after checking prod at 375px).
+
 ### Also fixed: "Updated" was advancing on no-op visit syncs
 `lastUpdatedAt` took the newest `sync_runs` success row of any kind. In bracket phase the
 visit-triggered sync runs every ~30 min and logs a success row even when its source wrote
