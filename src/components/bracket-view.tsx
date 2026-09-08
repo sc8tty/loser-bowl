@@ -15,14 +15,6 @@ import {
 // matchup-detail.tsx and older call sites import the badge from here.
 export { StatusBadge } from "@/components/status-badge";
 
-function seedLabel(team: PublicTeamRef | null): string {
-  if (team === null) {
-    return "TBD";
-  }
-
-  return team.finalSeed === null ? "?" : String(team.finalSeed);
-}
-
 function teamSeedText(team: PublicTeamRef | null): string {
   if (team === null || team.finalSeed === null) {
     return "Seed TBD";
@@ -86,18 +78,7 @@ function TeamSlot({
             : "border-stone-200 bg-white"
       }`}
     >
-      <span
-        className={`flex h-9 w-9 shrink-0 items-center justify-center font-mono text-sm font-black ${
-          winner
-            ? "bg-emerald-800 text-white"
-            : isTbd
-              ? "bg-stone-200 text-stone-500"
-              : "bg-stone-950 text-white"
-        }`}
-      >
-        {seedLabel(team)}
-      </span>
-      <span className="min-w-0">
+      <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-black text-stone-950">
           {teamName(team)}
         </span>
@@ -105,6 +86,11 @@ function TeamSlot({
           {teamSeedText(team)}
         </span>
       </span>
+      {winner ? (
+        <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
+          Winner
+        </span>
+      ) : null}
     </div>
   );
 }

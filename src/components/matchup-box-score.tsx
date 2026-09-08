@@ -93,29 +93,25 @@ function TeamHeading({
   const alignRight = side === "low";
 
   return (
-    <div
-      className={`flex min-w-0 items-center gap-3 ${
-        alignRight ? "sm:flex-row-reverse sm:text-right" : ""
-      }`}
-    >
+    <div className={`min-w-0 ${alignRight ? "sm:text-right" : ""}`}>
       <span
-        className={`flex h-11 w-11 shrink-0 items-center justify-center font-mono text-base font-black ${
-          winner
-            ? "bg-emerald-800 text-white"
-            : team === null
-              ? "bg-stone-200 text-stone-500"
-              : "bg-stone-950 text-white"
-        }`}
+        className={`flex items-center gap-2 ${alignRight ? "sm:flex-row-reverse" : ""}`}
       >
-        {team === null || team.finalSeed === null ? "?" : team.finalSeed}
-      </span>
-      <span className="min-w-0">
-        <span className="block truncate text-lg font-black text-stone-950 sm:text-xl">
+        <span
+          className={`block truncate text-lg font-black sm:text-xl ${
+            team === null ? "text-stone-400" : "text-stone-950"
+          }`}
+        >
           {team?.name ?? "TBD"}
         </span>
-        <span className="mt-0.5 block text-xs font-semibold text-stone-500">
-          {teamSubline(team)}
-        </span>
+        {winner ? (
+          <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
+            Winner
+          </span>
+        ) : null}
+      </span>
+      <span className="mt-0.5 block text-xs font-semibold text-stone-500">
+        {teamSubline(team)}
       </span>
     </div>
   );
@@ -126,7 +122,7 @@ function cellClasses(winner: CategoryStatLine["winner"], side: "high" | "low"): 
     return "text-stone-400";
   }
 
-  return winner === side ? "bg-stone-950 font-black text-white" : "text-stone-700";
+  return winner === side ? "bg-sky-100 font-black text-sky-950" : "text-stone-700";
 }
 
 function StatRow({
