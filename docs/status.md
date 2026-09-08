@@ -196,8 +196,12 @@ profile is doing the scrape (Scott logs in; Claude never handles the credentials
   different table); the real standings are League → Standings on the league home
   (`?module=standings&lhst=stand`). Team-number map above came from that page's links.
 - Save each pull as `data/stats/week<N>-<date>-<time>pdt.csv` (committed — it's the
-  provenance for what the site showed) and validate offline with the row parser before
-  importing; `npm run import:stats -- --dry-run` needs `DATABASE_URL` just to load settings.
+  provenance for what the site showed).
+- **The npm script does not load `.env.local`** (plain `node`, no dotenv). The invocation
+  that works, dry-run first, then for real:
+  `node --env-file=.env.local --experimental-strip-types scripts/import-stats.ts [--dry-run] data/stats/<file>.csv`
+  First real run from Fott Book: 2026-09-07 6:32 PM PDT, 8 rows, site showed "Updated just
+  now" and the new tallies on the next request.
 
 Until Yahoo access lands (if it ever does), the weekly cadence is:
 1. Visit the live Yahoo league site, pull each of the 8 Loser Bowl teams' current stats
