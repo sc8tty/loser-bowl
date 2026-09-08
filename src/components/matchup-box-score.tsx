@@ -38,16 +38,56 @@ type Column =
   | { kind: "support"; key: "hab" | "ip"; label: string }
   | { kind: "category"; row: CategoryStatLine };
 
-function buildColumns(rows: readonly CategoryStatLine[]): Column[] {
+type ColumnGroups = { batting: Column[]; pitching: Column[] };
+
+function buildColumns(rows: readonly CategoryStatLine[]): ColumnGroups {
   const batting = rows.filter((row) => !PITCHING_SLUGS.has(row.slug));
   const pitching = rows.filter((row) => PITCHING_SLUGS.has(row.slug));
 
-  return [
-    { kind: "support", key: "hab", label: "H/AB" },
-    ...batting.map((row): Column => ({ kind: "category", row })),
-    { kind: "support", key: "ip", label: "IP" },
-    ...pitching.map((row): Column => ({ kind: "category", row })),
-  ];
+  return {
+    batting: [
+      { kind: "support", key: "hab", label: "H/AB" },
+      ...batting.map((row): Column => ({ kind: "category", row })),
+    ],
+    pitching: [
+      { kind: "support", key: "ip", label: "IP" },
+      ...pitching.map((row): Column => ({ kind: "category", row })),
+    ],
+  };
+}
+
+function columnKey(column: Column): string {
+  return column.kind === "support" ? column.key : column.row.slug;
+}
+
+function columnLabel(column: Column): string {
+  return column.kind === "support" ? column.label : column.row.label;
+}
+
+function columnValue(
+  column: Column,
+  side: "high" | "low",
+  stats: PublicMatchupSlot["highStats"],
+): string {
+  if (column.kind === "support") {
+    return column.key === "hab" ? formatHitsAtBats(stats) : formatInningsPitched(stats);
+  }
+
+  return side === "high" ? column.row.highValue : column.row.lowValue;
+}
+
+function cellTone(column: Column, side: "high" | "low"): string {
+  if (column.kind === "support") {
+    return "text-stone-700";
+  }
+
+  if (column.row.winner === "tie") {
+    return "text-stone-400";
+  }
+
+  return column.row.winner === side
+    ? "bg-sky-100 font-black text-sky-950"
+    : "text-stone-700";
 }
 
 function teamSubline(team: PublicTeamRef | null): string {
@@ -65,6 +105,37 @@ function teamSubline(team: PublicTeamRef | null): string {
   return parts.join(" · ");
 }
 
+function Avatar({ team, size }: { team: PublicTeamRef | null; size: "sm" | "lg" }) {
+  const avatar = teamAvatarUrl(team?.id);
+  const box = size === "lg" ? "h-16 w-16" : "h-14 w-14";
+
+  if (avatar === null) {
+    return <span className={`${box} shrink-0 rounded-full bg-stone-200`} aria-hidden />;
+  }
+
+  return (
+    // Hotlinked Yahoo CDN art; next/image would need a remotePatterns
+    // allowlist for three hosts to optimize a 64px avatar. Not worth it.
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={avatar}
+      alt=""
+      width={64}
+      height={64}
+      loading="lazy"
+      className={`${box} shrink-0 rounded-full border border-stone-200 bg-white object-cover`}
+    />
+  );
+}
+
+function WinnerTag() {
+  return (
+    <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
+      Winner
+    </span>
+  );
+}
+
 function TeamHeading({
   team,
   side,
@@ -75,43 +146,24 @@ function TeamHeading({
   winner: boolean;
 }) {
   const alignRight = side === "low";
-  const avatar = teamAvatarUrl(team?.id);
 
   return (
     <div
       className={`flex min-w-0 items-center gap-3 ${
-        alignRight ? "sm:flex-row-reverse sm:text-right" : ""
+        alignRight ? "flex-row-reverse text-right" : ""
       }`}
     >
-      {avatar ? (
-        // Hotlinked Yahoo CDN art; next/image would need a remotePatterns
-        // allowlist for three hosts to optimize a 64px avatar. Not worth it.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={avatar}
-          alt=""
-          width={64}
-          height={64}
-          loading="lazy"
-          className="h-14 w-14 shrink-0 rounded-full border border-stone-200 bg-white object-cover sm:h-16 sm:w-16"
-        />
-      ) : null}
+      <Avatar team={team} size="lg" />
       <div className="min-w-0">
-        <span
-          className={`flex items-center gap-2 ${alignRight ? "sm:flex-row-reverse" : ""}`}
-        >
+        <span className={`flex items-center gap-2 ${alignRight ? "flex-row-reverse" : ""}`}>
           <span
-            className={`block truncate text-lg font-black sm:text-xl ${
+            className={`block truncate text-xl font-black ${
               team === null ? "text-stone-400" : "text-stone-950"
             }`}
           >
             {team?.name ?? "TBD"}
           </span>
-          {winner ? (
-            <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
-              Winner
-            </span>
-          ) : null}
+          {winner ? <WinnerTag /> : null}
         </span>
         <span className="mt-0.5 block text-xs font-semibold text-stone-500">
           {teamSubline(team)}
@@ -121,12 +173,123 @@ function TeamHeading({
   );
 }
 
-function cellClasses(winner: CategoryStatLine["winner"], side: "high" | "low"): string {
-  if (winner === "tie") {
-    return "text-stone-400";
-  }
+function Score({
+  tally,
+  slot,
+  status,
+  size,
+}: {
+  tally: ReturnType<typeof tallyParts>;
+  slot: PublicMatchupSlot;
+  status: ReturnType<typeof matchupStatusView>;
+  size: "sm" | "lg";
+}) {
+  const tallyAttr =
+    tally === null ? undefined : `${tally.highWins}-${tally.lowWins}-${tally.ties}`;
 
-  return winner === side ? "bg-sky-100 font-black text-sky-950" : "text-stone-700";
+  return (
+    <div
+      className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-mono font-black text-stone-950 ${
+        size === "lg" ? "text-4xl" : "text-5xl"
+      }`}
+      data-tally={tallyAttr}
+    >
+      <span>{tally?.highWins ?? "-"}</span>
+      <span className="text-xs font-black uppercase text-stone-400">vs</span>
+      <span>{tally?.lowWins ?? "-"}</span>
+      {status.label === "live" || status.label === "pending" ? null : (
+        <span className="basis-full text-center">
+          <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+        </span>
+      )}
+    </div>
+  );
+}
+
+/** Phone header, Yahoo-app style: names on top, avatars flanking the score. */
+function StackedHeader({
+  slot,
+  tally,
+  status,
+  winner,
+}: {
+  slot: PublicMatchupSlot;
+  tally: ReturnType<typeof tallyParts>;
+  status: ReturnType<typeof matchupStatusView>;
+  winner: PublicTeamRef | null;
+}) {
+  const highWon = winner !== null && winner.id === slot.highTeam?.id;
+  const lowWon = winner !== null && winner.id === slot.lowTeam?.id;
+
+  return (
+    <div className="px-4 py-4 sm:hidden">
+      <div className="flex items-start justify-between gap-3">
+        <span className="min-w-0 text-left">
+          <span className="block truncate text-base font-black text-stone-950">
+            {slot.highTeam?.name ?? "TBD"}
+          </span>
+          {highWon ? <WinnerTag /> : null}
+        </span>
+        <span className="min-w-0 text-right">
+          <span className="block truncate text-base font-black text-stone-950">
+            {slot.lowTeam?.name ?? "TBD"}
+          </span>
+          {lowWon ? <WinnerTag /> : null}
+        </span>
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <Avatar team={slot.highTeam} size="sm" />
+        <Score tally={tally} slot={slot} status={status} size="sm" />
+        <Avatar team={slot.lowTeam} size="sm" />
+      </div>
+      <div className="mt-3 flex justify-between gap-3 text-[11px] font-semibold text-stone-500">
+        <span className="text-left">{teamSubline(slot.highTeam)}</span>
+        <span className="text-right">{teamSubline(slot.lowTeam)}</span>
+      </div>
+    </div>
+  );
+}
+
+/** Phone stat list: high value | category | low value, one row per category. */
+function StackedStats({
+  title,
+  columns,
+  slot,
+}: {
+  title: string;
+  columns: readonly Column[];
+  slot: PublicMatchupSlot;
+}) {
+  return (
+    <div>
+      <div className="bg-stone-100 px-4 py-2 text-xs font-black uppercase text-stone-600">
+        {title}
+      </div>
+      <div className="divide-y divide-stone-200">
+        {columns.map((column) => (
+          <div
+            key={columnKey(column)}
+            className="grid grid-cols-[1fr_4.5rem_1fr] items-stretch text-center font-mono text-sm tabular-nums"
+          >
+            <span className={`px-3 py-2.5 ${cellTone(column, "high")}`}>
+              {columnValue(column, "high", slot.highStats)}
+            </span>
+            <span className="px-1 py-2.5 font-sans text-xs font-black uppercase text-stone-500">
+              {columnLabel(column)}
+              {column.kind === "category" && column.row.policyLabel ? (
+                <span className="ml-0.5 text-amber-700" title="Decided by the innings-pitched minimum">
+                  *
+                </span>
+              ) : null}
+            </span>
+            <span className={`px-3 py-2.5 ${cellTone(column, "low")}`}>
+              {columnValue(column, "low", slot.lowStats)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 function StatRow({
@@ -150,23 +313,14 @@ function StatRow({
       >
         {team?.name ?? "TBD"}
       </th>
-      {columns.map((column) =>
-        column.kind === "support" ? (
-          <td
-            key={column.key}
-            className="whitespace-nowrap px-3 py-3 text-center font-mono text-sm tabular-nums text-stone-700"
-          >
-            {column.key === "hab" ? formatHitsAtBats(stats) : formatInningsPitched(stats)}
-          </td>
-        ) : (
-          <td
-            key={column.row.slug}
-            className={`whitespace-nowrap px-3 py-3 text-center font-mono text-sm tabular-nums ${cellClasses(column.row.winner, side)}`}
-          >
-            {side === "high" ? column.row.highValue : column.row.lowValue}
-          </td>
-        ),
-      )}
+      {columns.map((column) => (
+        <td
+          key={columnKey(column)}
+          className={`whitespace-nowrap px-3 py-3 text-center font-mono text-sm tabular-nums ${cellTone(column, side)}`}
+        >
+          {columnValue(column, side, stats)}
+        </td>
+      ))}
       <td className="whitespace-nowrap px-3 py-3 text-center font-mono text-lg font-black tabular-nums text-stone-950">
         {wins ?? "-"}
       </td>
@@ -186,9 +340,8 @@ export function MatchupBoxScore({
   const winner = slot.status === "under_review" ? null : effectiveWinner(slot);
   const tally = tallyParts(slot);
   const rows = categoryStatLines(slot, statCategories);
-  const columns = buildColumns(rows);
-  const tallyAttr =
-    tally === null ? null : `${tally.highWins}-${tally.lowWins}-${tally.ties}`;
+  const groups = buildColumns(rows);
+  const columns = [...groups.batting, ...groups.pitching];
 
   return (
     <article
@@ -201,22 +354,20 @@ export function MatchupBoxScore({
         {meta.label}
       </h4>
 
-      <div className="grid gap-4 px-4 py-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
-        <TeamHeading team={slot.highTeam} side="high" winner={winner?.id === slot.highTeam?.id && winner !== null} />
-        <div
-          className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-mono text-4xl font-black text-stone-950"
-          data-tally={tallyAttr ?? undefined}
-        >
-          <span>{tally?.highWins ?? "-"}</span>
-          <span className="text-xs font-black uppercase text-stone-400">vs</span>
-          <span>{tally?.lowWins ?? "-"}</span>
-          {status.label === "live" || status.label === "pending" ? null : (
-            <span className="basis-full text-center">
-              <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
-            </span>
-          )}
-        </div>
-        <TeamHeading team={slot.lowTeam} side="low" winner={winner?.id === slot.lowTeam?.id && winner !== null} />
+      <StackedHeader slot={slot} tally={tally} status={status} winner={winner} />
+
+      <div className="hidden gap-4 px-4 py-5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+        <TeamHeading
+          team={slot.highTeam}
+          side="high"
+          winner={winner !== null && winner.id === slot.highTeam?.id}
+        />
+        <Score tally={tally} slot={slot} status={status} size="lg" />
+        <TeamHeading
+          team={slot.lowTeam}
+          side="low"
+          winner={winner !== null && winner.id === slot.lowTeam?.id}
+        />
       </div>
 
       {status.bannerTitle ? (
@@ -235,56 +386,63 @@ export function MatchupBoxScore({
             : `No stats imported for Week ${slot.week} yet.`}
         </div>
       ) : (
-        <div className="overflow-x-auto border-t border-stone-200">
-          <table className="w-full min-w-max border-collapse text-left">
-            <thead className="bg-stone-100 text-xs font-semibold uppercase text-stone-500">
-              <tr>
-                <th
-                  scope="col"
-                  className="sticky left-0 z-10 min-w-40 bg-stone-100 px-3 py-2 text-left"
-                >
-                  Team
-                </th>
-                {columns.map((column) => (
+        <>
+          <div className="border-t border-stone-200 sm:hidden">
+            <StackedStats title="Batters" columns={groups.batting} slot={slot} />
+            <StackedStats title="Pitchers" columns={groups.pitching} slot={slot} />
+          </div>
+
+          <div className="hidden overflow-x-auto border-t border-stone-200 sm:block">
+            <table className="w-full min-w-max border-collapse text-left">
+              <thead className="bg-stone-100 text-xs font-semibold uppercase text-stone-500">
+                <tr>
                   <th
-                    key={column.kind === "support" ? column.key : column.row.slug}
                     scope="col"
-                    className="whitespace-nowrap px-3 py-2 text-center"
+                    className="sticky left-0 z-10 min-w-40 bg-stone-100 px-3 py-2 text-left"
                   >
-                    {column.kind === "support" ? column.label : column.row.label}
-                    {column.kind === "category" && column.row.policyLabel ? (
-                      <span
-                        className="ml-1 text-amber-700"
-                        title="Decided by the innings-pitched minimum"
-                      >
-                        *
-                      </span>
-                    ) : null}
+                    Team
                   </th>
-                ))}
-                <th scope="col" className="whitespace-nowrap px-3 py-2 text-center">
-                  Score
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              <StatRow
-                team={slot.highTeam}
-                side="high"
-                stats={slot.highStats}
-                columns={columns}
-                wins={tally?.highWins ?? null}
-              />
-              <StatRow
-                team={slot.lowTeam}
-                side="low"
-                stats={slot.lowStats}
-                columns={columns}
-                wins={tally?.lowWins ?? null}
-              />
-            </tbody>
-          </table>
-        </div>
+                  {columns.map((column) => (
+                    <th
+                      key={columnKey(column)}
+                      scope="col"
+                      className="whitespace-nowrap px-3 py-2 text-center"
+                    >
+                      {columnLabel(column)}
+                      {column.kind === "category" && column.row.policyLabel ? (
+                        <span
+                          className="ml-1 text-amber-700"
+                          title="Decided by the innings-pitched minimum"
+                        >
+                          *
+                        </span>
+                      ) : null}
+                    </th>
+                  ))}
+                  <th scope="col" className="whitespace-nowrap px-3 py-2 text-center">
+                    Score
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <StatRow
+                  team={slot.highTeam}
+                  side="high"
+                  stats={slot.highStats}
+                  columns={columns}
+                  wins={tally?.highWins ?? null}
+                />
+                <StatRow
+                  team={slot.lowTeam}
+                  side="low"
+                  stats={slot.lowStats}
+                  columns={columns}
+                  wins={tally?.lowWins ?? null}
+                />
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       {slot.overrideWinner ? (
