@@ -193,21 +193,61 @@ end-to-end afterward with a real empty-commit push: Vercel auto-deployed and wen
 ## Manual mode — the operational loop going forward
 **Yahoo league URL:** <https://baseball.fantasysports.yahoo.com/league/lander> (Lander's
 League, league ID **16468**, 2026). Requires a logged-in Yahoo session in whatever browser
-profile is doing the scrape (Scott logs in; Claude never handles the credentials).
+profile is doing the scrape (Scott logs in; Claude never handles the credentials). Works
+identically on Fott Studio and Fott Book — the only per-machine requirement is `.env.local`
+(git-ignored; copy it over or ask Scott for the values, see the env-file note below).
 
-### Scrape recipe (worked 2026-09-07 from Fott Book, ~4 min for all 8 teams)
+### THE established daily procedure (confirmed by Scott 2026-09-08 — do this every day)
+Yahoo has **no "this week" filter** on a team's stat page — only a specific calendar day,
+"Today", Last 7/14/30 Days, or full season. "Today" only happens to equal "week so far" on
+the **first** day of a bowl round; every day after that, "Today" means that day alone. So
+the week's running total has to be built by hand, one day at a time:
+
+1. **Check whether the target day's games have actually been played** before pulling
+   anything — pull one team's page with `stat2=D` for that specific date; if every cell is
+   `-`, no games happened yet, there's nothing new to add, stop here. (Confirmed working
+   2026-09-08: Baseball Furries' Tuesday page was all dashes before that day's games
+   started — correctly meant "no pull needed yet.")
+2. **Pull all 8 bowl teams for the single day** that just completed, using the exact-date
+   URL (`/b1/16468/<n>/team?&date=YYYY-MM-DD&stat1=S&stat2=D`), never "Today" past day one.
+3. **Add that day's counting stats to the running week total** (R, 2B, 3B, HR, RBI, SB, W,
+   BB, K, NSVH, at_bats, batting_hits — everything except OPS/ERA/WHIP/K9). The previous
+   cumulative total is whatever the last imported CSV for this week already contains — read
+   it back from `data/stats/` (the most recent `week<N>-*.csv` for the current week) rather
+   than re-deriving it from memory.
+4. **Replace OPS/ERA/WHIP/K9 with the values from the day just pulled** — don't try to
+   combine them with the previous day's ratios. This is a known, accepted limitation: Yahoo
+   never exposes the raw components (earned runs allowed, hits allowed, batter BB/HBP/SF)
+   needed to compute a true cumulative ratio, so the site shows the most recent day's ratio
+   as the best available estimate until either a fresh pull replaces it or the round closes.
+5. **Before importing, re-check the previous day's numbers for late revisions** — Yahoo
+   occasionally posts a stat correction after a day is final. Pull the previous date again
+   and diff it against what's already imported; if it changed, that's a real correction and
+   the running total needs re-summing from that day forward, not just today's delta added on
+   top of a stale base. (Checked 2026-09-08: Monday 9/7's numbers were byte-identical to the
+   10:01 PM pull — no correction, nothing to redo.)
+6. Build the CSV, `--dry-run` it, then import for real (see the mechanics below). Save the
+   CSV as `data/stats/week<N>-<date>-<time>pdt.csv` — the filename's date/time is the point
+   the cumulative total covers, e.g. a file dated `2026-09-08` after Tuesday's games contains
+   Monday+Tuesday counting stats and Tuesday's ratios. This file **is** the audit trail (it's
+   committed to git); there's no separate per-day ledger, so don't skip committing it.
+7. Once a round's last calendar day (Sunday) is pulled, "Last 7 Days" (`stat2=L7`) on that
+   final day gives Yahoo's own exact cumulative total for the whole week in one query — use
+   it as a cross-check against the hand-summed total before that round's final import.
+
+**Arithmetic is the actual risk here, not the scraping** — this decides a $50 pot. Add
+counting stats with a calculator or a script, not mental math, and sanity-check each team's
+running total only moves in the direction that day's box score implies (never goes down).
+
+### Scrape mechanics
 - **Team page = `https://baseball.fantasysports.yahoo.com/b1/16468/<n>`**, Yahoo team numbers
   for the bowl teams: 12 SLUMP BUSTERS · 3 Eat The Rich · 15 Trout's Honor · 14 Me So
   Hoerner · 9 You Hang'em We Bang'em · 4 Sheatriptease Bangeliers · 13 Springfield Isotopes ·
   2 Baseball Furries. (Full map: 1 Seiya Nara Suketto!, 5 Ghost Runners, 6 Gunnars, 7 Hyundai
   Unicorns, 8 For Whom the Belli Tolls, 10 Momma Bears, 11 O's Before Hoes, 16 XanDiego.)
-- **Date filter is a query string, no clicking:** `?stat1=S&stat2=D` = Today,
-  `?stat1=S&stat2=L7` = Last 7 Days, and `/team?&date=YYYY-MM-DD&stat1=S&stat2=D` = a
-  specific day. There is **no "this week" filter**. Day 1 of a week: Today = week so far.
-  **Last day of a week (Sunday): Last 7 Days = exactly the whole week.** Any other day:
-  sum the per-day pages, or wait for Sunday. (Ratios — OPS/ERA/WHIP/K9 — can't be summed;
-  mid-week multi-day pulls need the per-day counting stats plus a Sunday pull for ratios,
-  or accept Sunday-only imports after day 1.)
+- **Date filter is a query string, no clicking:** `?stat1=S&stat2=D` = Today, `?stat1=S&
+  stat2=L7` = Last 7 Days, and `/team?&date=YYYY-MM-DD&stat1=S&stat2=D` = a specific day
+  (this is the one to use for the daily procedure above, always with an explicit date).
 - **Read the numbers from the table footers, not the page text.** `#statTable0` (batters)
   and `#statTable1` (pitchers) each have a `tfoot` row "Starting Lineup Totals" — that's
   what Yahoo scores (bench excluded). Cell order after the label: batting
@@ -216,37 +256,34 @@ profile is doing the scrape (Scott logs in; Claude never handles the credentials
   `const f=id=>[...document.querySelector('#'+id).tFoot.rows[0].cells].map(c=>c.innerText.trim()).filter(x=>x&&x!=='Starting Lineup Totals'); JSON.stringify({bat:f('statTable0'),pit:f('statTable1')})`
 - `/b1/16468/standings` redirects to **Live Standings** (a matchup-projection view with a
   different table); the real standings are League → Standings on the league home
-  (`?module=standings&lhst=stand`). Team-number map above came from that page's links.
-- Save each pull as `data/stats/week<N>-<date>-<time>pdt.csv` (committed — it's the
-  provenance for what the site showed).
+  (`?module=standings&lhst=stand`). Team-number map above came from that page's links. The
+  league-wide **Team Stats** page (`/b1/16468/headtoheadstats`) only shows season W-L-T
+  records per category, not week totals — checked 2026-09-08, not useful for this.
 - **The npm script does not load `.env.local`** (plain `node`, no dotenv). The invocation
   that works, dry-run first, then for real:
   `node --env-file=.env.local --experimental-strip-types scripts/import-stats.ts [--dry-run] data/stats/<file>.csv`
   First real run from Fott Book: 2026-09-07 6:32 PM PDT, 8 rows, site showed "Updated just
   now" and the new tallies on the next request.
-
-Until Yahoo access lands (if it ever does), the weekly cadence is:
-1. Visit the live Yahoo league site, pull each of the 8 Loser Bowl teams' current stats
-   (Standings tab → click into each team → "Stats" tab, correct date filter for the day).
-2. Build a CSV matching `scripts/import-stats.ts`'s expected columns (see
-   `scripts/lib/stat-rows.ts` for the exact schema — `r,2b,3b,hr,rbi,sb,ops,w,bb,k,era,whip,
-   k9,nsvh,at_bats,batting_hits,innings_pitched`, plus `team_id,week`). Real team IDs are the
-   slugs in `fixtures/standings.2026.json` (e.g. `slump-busters`, `eat-the-rich`).
-3. **Transcription rule for a team's zero-innings-pitched pitching line:** Yahoo shows `-`
-   for every pitching column (IP, W, BB, K, ERA, WHIP, K/9, NSVH) when a team has recorded no
-   innings yet. For the true counting stats (W, BB, K, NSVH) this means `0`, not `-` — the
-   games just haven't happened, the count really is zero. Only the ratio columns (ERA, WHIP,
-   K/9) should be transcribed as literal `-` (Yahoo's own "undefined at 0 IP" placeholder).
-4. `npm run import:stats -- --dry-run path/to.csv` to validate, then without `--dry-run` to
-   commit it.
-5. ~~No live in-app tracking~~ — superseded: since the second 2026-09-07 session the
-   bracket shows a live tally from the imported stat lines immediately (see top of this
-   doc). The engine's own computed tally (provisional → final) still only lands once the
-   round closes.
-6. `import-standings.ts` and `import-regular-season-matchups.ts` exist for the tiebreaker
-   data (season category win totals, head-to-head results) but weren't exercised this
-   session — the Schedule tab (per-team, 23-week list of opponent/result/score) is the source
-   for tiebreaker #1 data when that's needed.
+- Real team IDs (for the CSV's `team_id` column) are the slugs in
+  `fixtures/standings.2026.json` (e.g. `slump-busters`, `eat-the-rich`) — same 8 team-number
+  map above, just id instead of Yahoo team number.
+- CSV columns (`scripts/lib/stat-rows.ts` is the exact schema): `team_id,week,r,2b,3b,hr,
+  rbi,sb,ops,w,bb,k,era,whip,k9,nsvh,at_bats,batting_hits,innings_pitched`.
+- **Transcription rule for a team's zero-innings-pitched pitching line:** Yahoo shows `-`
+  for every pitching column (IP, W, BB, K, ERA, WHIP, K/9, NSVH) when a team has recorded no
+  innings yet. For the true counting stats (W, BB, K, NSVH) this means `0`, not `-` — the
+  games just haven't happened, the count really is zero. Only the ratio columns (ERA, WHIP,
+  K/9) should be transcribed as literal `-` (Yahoo's own "undefined at 0 IP" placeholder).
+- **NSVH (net saves + holds) can go negative** — a blown save subtracts, Yahoo shows e.g.
+  `-2` (Baseball Furries, 2026-09-07). This is valid; `parseRatio`/the CSV validator accept a
+  signed value for `nsvh` only (fixed 2026-09-07 — previously threw and blanked that
+  matchup's live tally, and would have thrown at week-close too).
+- `import-standings.ts` and `import-regular-season-matchups.ts` exist for the tiebreaker
+  data (season category win totals, head-to-head results) but haven't been exercised yet —
+  the Schedule tab (per-team, 23-week list of opponent/result/score) is the source for
+  tiebreaker #1 data when that's needed.
+- The bracket's live tally (see top of this doc) updates immediately on import; the engine's
+  own computed tally (provisional → final) only lands once the round's last day passes.
 
 ## External — Yahoo API access (unchanged this session; still pending)
 - Yahoo Fantasy API access application submitted 2026-07-31. Still **not approved** as of the
