@@ -1,3 +1,4 @@
+import { teamAvatarUrl } from "@/config/avatars";
 import { StatusBadge } from "@/components/status-badge";
 import {
   categoryStatLines,
@@ -74,28 +75,48 @@ function TeamHeading({
   winner: boolean;
 }) {
   const alignRight = side === "low";
+  const avatar = teamAvatarUrl(team?.id);
 
   return (
-    <div className={`min-w-0 ${alignRight ? "sm:text-right" : ""}`}>
-      <span
-        className={`flex items-center gap-2 ${alignRight ? "sm:flex-row-reverse" : ""}`}
-      >
+    <div
+      className={`flex min-w-0 items-center gap-3 ${
+        alignRight ? "sm:flex-row-reverse sm:text-right" : ""
+      }`}
+    >
+      {avatar ? (
+        // Hotlinked Yahoo CDN art; next/image would need a remotePatterns
+        // allowlist for three hosts to optimize a 64px avatar. Not worth it.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={avatar}
+          alt=""
+          width={64}
+          height={64}
+          loading="lazy"
+          className="h-14 w-14 shrink-0 rounded-full border border-stone-200 bg-white object-cover sm:h-16 sm:w-16"
+        />
+      ) : null}
+      <div className="min-w-0">
         <span
-          className={`block truncate text-lg font-black sm:text-xl ${
-            team === null ? "text-stone-400" : "text-stone-950"
-          }`}
+          className={`flex items-center gap-2 ${alignRight ? "sm:flex-row-reverse" : ""}`}
         >
-          {team?.name ?? "TBD"}
-        </span>
-        {winner ? (
-          <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
-            Winner
+          <span
+            className={`block truncate text-lg font-black sm:text-xl ${
+              team === null ? "text-stone-400" : "text-stone-950"
+            }`}
+          >
+            {team?.name ?? "TBD"}
           </span>
-        ) : null}
-      </span>
-      <span className="mt-0.5 block text-xs font-semibold text-stone-500">
-        {teamSubline(team)}
-      </span>
+          {winner ? (
+            <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
+              Winner
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block text-xs font-semibold text-stone-500">
+          {teamSubline(team)}
+        </span>
+      </div>
     </div>
   );
 }
@@ -176,27 +197,24 @@ export function MatchupBoxScore({
       }`}
       aria-labelledby={`${slot.id}-heading`}
     >
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-stone-200 px-4 py-2">
-        <h4
-          id={`${slot.id}-heading`}
-          className="font-mono text-xs font-black uppercase text-stone-500"
-        >
-          {meta.label}
-        </h4>
-        {status.label === "live" ? null : (
-          <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
-        )}
-      </div>
+      <h4 id={`${slot.id}-heading`} className="sr-only">
+        {meta.label}
+      </h4>
 
       <div className="grid gap-4 px-4 py-5 sm:grid-cols-[1fr_auto_1fr] sm:items-center">
         <TeamHeading team={slot.highTeam} side="high" winner={winner?.id === slot.highTeam?.id && winner !== null} />
         <div
-          className="flex items-center justify-center gap-4 font-mono text-4xl font-black text-stone-950"
+          className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 font-mono text-4xl font-black text-stone-950"
           data-tally={tallyAttr ?? undefined}
         >
           <span>{tally?.highWins ?? "-"}</span>
           <span className="text-xs font-black uppercase text-stone-400">vs</span>
           <span>{tally?.lowWins ?? "-"}</span>
+          {status.label === "live" || status.label === "pending" ? null : (
+            <span className="basis-full text-center">
+              <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
+            </span>
+          )}
         </div>
         <TeamHeading team={slot.lowTeam} side="low" winner={winner?.id === slot.lowTeam?.id && winner !== null} />
       </div>
