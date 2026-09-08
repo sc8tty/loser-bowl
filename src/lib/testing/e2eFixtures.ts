@@ -85,6 +85,7 @@ function buildTeamsBySeed(teams: readonly LeagueTeam[]): Map<number, PublicTeamR
           team.currentRank >= 9 && team.currentRank <= 16
             ? team.currentRank
             : null,
+        record: { wins: team.wins, losses: team.losses, ties: team.ties },
       },
     ]),
   );
@@ -250,6 +251,8 @@ function buildMatchup(
         : teamForSeed(spec.overrideWinnerSeed),
     computedTally,
     liveTally: null,
+    highStats: null,
+    lowStats: null,
     decidedBy: computedTally?.decidedBy ?? null,
     lockedAt: spec.lockedAt === undefined ? null : new Date(spec.lockedAt),
     settledAt: spec.settledAt === undefined ? null : new Date(spec.settledAt),
@@ -304,6 +307,7 @@ function buildLeagueData(
     status: "ready",
     teams,
     matchups,
+    statCategories: SEEDED_STAT_CATEGORIES,
     phase: phase(
       phaseNow(scenario),
       {

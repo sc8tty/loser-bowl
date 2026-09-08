@@ -123,7 +123,11 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
         ) : data.phase === "champion" ? (
           <ChampionView data={data} />
         ) : (
-          <BracketView id="full-bracket" matchups={data.matchups} />
+          <BracketView
+            id="full-bracket"
+            matchups={data.matchups}
+            statCategories={data.statCategories}
+          />
         )}
       </main>
 
@@ -222,6 +226,7 @@ function ChampionView({
       <BracketView
         id="full-bracket"
         matchups={data.matchups}
+        statCategories={data.statCategories}
         title="Full Bracket"
       />
     </>

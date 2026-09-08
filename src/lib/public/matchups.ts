@@ -16,12 +16,26 @@ export const PUBLIC_MATCHUP_IDS = [
 
 export type PublicMatchupId = (typeof PUBLIC_MATCHUP_IDS)[number];
 
+export type PublicTeamRecord = {
+  wins: number;
+  losses: number;
+  ties: number;
+};
+
 export type PublicTeamRef = {
   id: string;
   name: string;
   currentRank: number;
   finalSeed: number | null;
+  /** Regular-season category record (Yahoo's "170-152-23"); null when unknown. */
+  record: PublicTeamRecord | null;
 };
+
+/**
+ * One team's raw imported stat line for the matchup week, as stored. Needed
+ * for the box score's non-scoring columns (H/AB, IP) which no tally carries.
+ */
+export type PublicStatLine = Record<string, string | number | null>;
 
 export type PublicComparedCategory = {
   slug: string;
@@ -80,6 +94,8 @@ export type PublicMatchup = {
   // Never populated alongside computedTally: once the engine records a result
   // the matchup leaves pending/live and the live view stops.
   liveTally: PublicLiveTally | null;
+  highStats: PublicStatLine | null;
+  lowStats: PublicStatLine | null;
   decidedBy: DecidedBy | null;
   lockedAt: Date | null;
   settledAt: Date | null;
@@ -188,6 +204,8 @@ export function emptyPublicMatchup(id: PublicMatchupId): PublicMatchup {
     overrideWinner: null,
     computedTally: null,
     liveTally: null,
+    highStats: null,
+    lowStats: null,
     decidedBy: null,
     lockedAt: null,
     settledAt: null,
@@ -475,11 +493,13 @@ export function formatCategoryValue(slug: string, value: number | null): string 
     return "-";
   }
 
-  if (slug === "avg") {
+  // Yahoo's own display conventions: ".526" for AVG/OPS, two decimals for
+  // the pitching ratios including K/9 ("12.00").
+  if (slug === "avg" || slug === "ops") {
     return value.toFixed(3).replace(/^0/, "");
   }
 
-  if (slug === "era" || slug === "whip") {
+  if (slug === "era" || slug === "whip" || slug === "k9") {
     return value.toFixed(2);
   }
 
@@ -488,6 +508,49 @@ export function formatCategoryValue(slug: string, value: number | null): string 
   }
 
   return value.toFixed(3).replace(/\.?0+$/, "");
+}
+
+export function formatRecord(team: Pick<PublicTeamRef, "record"> | null): string | null {
+  if (team === null || team.record === null) {
+    return null;
+  }
+
+  return `${team.record.wins}-${team.record.losses}-${team.record.ties}`;
+}
+
+export function ordinal(n: number): string {
+  const mod100 = n % 100;
+
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${n}th`;
+  }
+
+  const suffix = { 1: "st", 2: "nd", 3: "rd" }[n % 10] ?? "th";
+
+  return `${n}${suffix}`;
+}
+
+function statText(stats: PublicStatLine | null, key: string): string | null {
+  const value = stats?.[key];
+
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+
+  return String(value);
+}
+
+/** Yahoo's "H/AB" column: batting hits over at-bats from the raw stat line. */
+export function formatHitsAtBats(stats: PublicStatLine | null): string {
+  const hits = statText(stats, "batting_hits");
+  const atBats = statText(stats, "at_bats");
+
+  return hits === null || atBats === null ? "-" : `${hits}/${atBats}`;
+}
+
+/** Yahoo's "IP" column, kept in Yahoo's thirds notation ("8.1" = 8⅓). */
+export function formatInningsPitched(stats: PublicStatLine | null): string {
+  return statText(stats, "innings_pitched") ?? "-";
 }
 
 function policyLabel(policy: string | undefined): string | null {

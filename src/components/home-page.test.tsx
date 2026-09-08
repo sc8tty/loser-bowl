@@ -22,6 +22,7 @@ function publicTeam(seed: number): PublicTeamRef {
     name: `Team ${seed}`,
     currentRank: seed,
     finalSeed: seed,
+    record: { wins: 80 - seed, losses: 50 + seed, ties: seed % 3 },
   };
 }
 
@@ -61,6 +62,8 @@ function matchup(overrides: Partial<PublicMatchup> = {}): PublicMatchup {
     overrideWinner: null,
     computedTally: computedTally(highTeam, lowTeam),
     liveTally: null,
+    highStats: null,
+    lowStats: null,
     decidedBy: "categories",
     lockedAt: new Date("2026-09-14T06:00:00.000Z"),
     settledAt: new Date("2026-09-15T06:00:00.000Z"),
@@ -83,6 +86,7 @@ describe("HomePage phase rendering", () => {
       phase: "race",
       lastSuccessAt: new Date("2026-09-08T18:30:00.000Z"),
       lastUpdatedAt: new Date("2026-09-08T18:30:00.000Z"),
+      statCategories: [],
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [],
     });
@@ -99,13 +103,16 @@ describe("HomePage phase rendering", () => {
       phase: "bracket",
       lastSuccessAt: new Date("2026-09-08T18:30:00.000Z"),
       lastUpdatedAt: new Date("2026-09-08T18:30:00.000Z"),
+      statCategories: [],
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [matchup()],
     });
 
     expect(html).toContain("Loser Bowl Bracket");
-    expect(html).toContain("r1m1");
-    expect(html).toContain("r2m1");
+    expect(html).toContain("Round 1 Matchup 1");
+    expect(html).toContain("Semifinal 1");
+    expect(html).toContain("H/AB");
+    expect(html).toContain(">IP<");
     expect(html).toContain("final");
     expect(html).toContain("TBD");
     expect(html).not.toContain("Current Standings");
@@ -119,6 +126,7 @@ describe("HomePage phase rendering", () => {
       phase: "champion",
       lastSuccessAt: new Date("2026-09-29T18:30:00.000Z"),
       lastUpdatedAt: new Date("2026-09-29T18:30:00.000Z"),
+      statCategories: [],
       teams: Array.from({ length: 16 }, (_, index) => leagueTeam(index + 1)),
       matchups: [
         matchup({
@@ -151,6 +159,7 @@ describe("HomePage live tally cards", () => {
       teams: [leagueTeam(9), leagueTeam(16)],
       lastSuccessAt: null,
       lastUpdatedAt: new Date("2026-09-08T18:45:00.000Z"),
+      statCategories: [],
       matchups: [
         matchup({
           status: "pending",
@@ -174,10 +183,10 @@ describe("HomePage live tally cards", () => {
       ],
     });
 
-    expect(html).toContain("Live tally");
-    expect(html).toContain("7-5-3");
-    expect(html).toContain("Team 9 leads");
+    expect(html).toContain('data-tally="7-5-3"');
+    expect(html).toContain("Live: Team 9 leads 7-5-3.");
     expect(html).toContain(">live<");
+    expect(html).not.toContain("Matchup detail");
     expect(html).toContain("15 min ago");
     expect(html).toContain("Sep 8, 11:45 AM PDT");
   });
@@ -189,6 +198,7 @@ describe("HomePage live tally cards", () => {
       teams: [leagueTeam(9), leagueTeam(16)],
       lastSuccessAt: null,
       lastUpdatedAt: null,
+      statCategories: [],
       matchups: [
         matchup({ status: "pending", computedWinner: null, computedTally: null, decidedBy: null }),
       ],

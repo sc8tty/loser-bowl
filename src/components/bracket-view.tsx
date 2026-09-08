@@ -1,25 +1,19 @@
-import Link from "next/link";
-
+import { LEAGUE_CONFIG } from "@/config/league";
+import { MatchupBoxScore } from "@/components/matchup-box-score";
+import { StatusBadge } from "@/components/status-badge";
 import {
   buildBracketSlots,
   effectiveWinner,
-  formatTally,
-  isLiveMatchup,
-  liveLeader,
   matchupMeta,
-  matchupStatusView,
   roundLabel,
   type PublicMatchup,
   type PublicMatchupSlot,
+  type PublicStatCategory,
   type PublicTeamRef,
 } from "@/lib/public/matchups";
 
-const badgeToneClasses = {
-  stone: "border-stone-400 bg-stone-50 text-stone-700",
-  rose: "border-rose-700 bg-rose-50 text-rose-900",
-  amber: "border-amber-600 bg-amber-50 text-amber-900",
-  emerald: "border-emerald-700 bg-emerald-50 text-emerald-900",
-};
+// matchup-detail.tsx and older call sites import the badge from here.
+export { StatusBadge } from "@/components/status-badge";
 
 function seedLabel(team: PublicTeamRef | null): string {
   if (team === null) {
@@ -41,23 +35,36 @@ function teamName(team: PublicTeamRef | null): string {
   return team?.name ?? "TBD";
 }
 
-export function StatusBadge({
-  matchup,
-  upstreamUnderReview = false,
-}: {
-  matchup: Pick<PublicMatchup, "status"> &
-    Partial<Pick<PublicMatchup, "computedTally" | "liveTally">>;
-  upstreamUnderReview?: boolean;
-}) {
-  const status = matchupStatusView(matchup, upstreamUnderReview);
+function formatMonthDay(date: string): string {
+  const [year, month, day] = date.split("-").map(Number);
 
-  return (
-    <span
-      className={`inline-flex border px-2 py-1 text-xs font-black uppercase ${badgeToneClasses[status.tone]}`}
-    >
-      {status.label}
-    </span>
-  );
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(year, month - 1, day, 12)));
+}
+
+function roundDates(round: 1 | 2 | 3): string | null {
+  const config = LEAGUE_CONFIG.rounds.find((candidate) => candidate.round === round);
+
+  return config === undefined
+    ? null
+    : `${formatMonthDay(config.start)}–${formatMonthDay(config.end)}`;
+}
+
+/**
+ * The round the league is watching right now: the earliest round with any
+ * matchup still undecided. Once everything is final, that's the Final.
+ */
+export function currentRound(slots: readonly PublicMatchupSlot[]): 1 | 2 | 3 {
+  for (const round of [1, 2, 3] as const) {
+    if (slots.some((slot) => slot.round === round && slot.status !== "final")) {
+      return round;
+    }
+  }
+
+  return 3;
 }
 
 function TeamSlot({
@@ -102,13 +109,10 @@ function TeamSlot({
   );
 }
 
+/** Compact card for rounds that aren't the current one (upcoming or settled). */
 export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
   const meta = matchupMeta(slot.id);
-  const status = matchupStatusView(slot, slot.upstreamUnderReview);
   const winner = slot.status === "under_review" ? null : effectiveWinner(slot);
-  const tally = formatTally(slot);
-  const live = isLiveMatchup(slot);
-  const leader = live ? liveLeader(slot) : null;
 
   return (
     <article
@@ -120,16 +124,9 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
             : "border-dashed border-stone-300"
       }`}
     >
-      <div className="border-b border-stone-300 bg-white px-4 py-4">
+      <div className="bg-white px-4 py-4">
         <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <div className="font-mono text-xs font-black uppercase text-stone-500">
-              {slot.id}
-            </div>
-            <h3 className="mt-1 text-base font-black text-stone-950">
-              {meta.label}
-            </h3>
-          </div>
+          <h4 className="text-base font-black text-stone-950">{meta.label}</h4>
           <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
         </div>
         <div className="grid gap-2">
@@ -146,77 +143,56 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
           />
         </div>
       </div>
-
-      {status.bannerTitle ? (
-        <div className="border-b border-rose-200 bg-rose-50 px-4 py-3">
-          <div className="text-xs font-black uppercase text-rose-900">
-            {status.bannerTitle}
+      {slot.overrideWinner ? (
+        <div className="border-t border-amber-300 bg-amber-50 px-4 py-3">
+          <div className="text-xs font-black uppercase text-amber-900">
+            Commissioner override
           </div>
-          <p className="mt-1 text-sm font-semibold text-rose-950">
-            {status.bannerText}
-          </p>
+          <div className="mt-1 text-sm font-semibold text-amber-950">
+            Winner: {slot.overrideWinner.name}
+          </div>
         </div>
       ) : null}
-
-      <div className="grid gap-3 px-4 py-4 text-sm">
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold text-stone-500">Week</span>
-          <span className="font-mono font-black text-stone-900">{slot.week}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="font-semibold text-stone-500">
-            {live ? "Live tally" : "Tally"}
-          </span>
-          <span className="font-mono font-black text-stone-900">
-            {tally ?? "Not computed"}
-          </span>
-        </div>
-        {live && tally !== null ? (
-          <div className="-mt-1 text-right text-xs font-semibold text-rose-900">
-            {leader === null ? "Tied" : `${leader.name} leads`}
-          </div>
-        ) : null}
-        {slot.overrideWinner ? (
-          <div className="border border-amber-300 bg-amber-50 px-3 py-2">
-            <div className="text-xs font-black uppercase text-amber-900">
-              Commissioner override
-            </div>
-            <div className="mt-1 font-semibold text-amber-950">
-              Winner: {slot.overrideWinner.name}
-            </div>
-          </div>
-        ) : null}
-        <Link
-          href={`/matchup/${slot.id}`}
-          className="inline-flex justify-center border border-stone-950 bg-stone-950 px-3 py-2 text-sm font-black uppercase text-white hover:bg-rose-900"
-        >
-          Matchup detail
-        </Link>
-      </div>
     </article>
+  );
+}
+
+function RoundHeading({ round }: { round: 1 | 2 | 3 }) {
+  const dates = roundDates(round);
+
+  return (
+    <div className="mb-3 border-b-4 border-stone-950 pb-2">
+      <h3 className="text-lg font-black text-stone-950">{roundLabel(round)}</h3>
+      {dates ? (
+        <div className="mt-1 font-mono text-xs font-semibold uppercase text-stone-500">
+          {dates}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
 export function BracketView({
   matchups,
+  statCategories,
   id,
   title = "Loser Bowl Bracket",
 }: {
   matchups: readonly PublicMatchup[];
+  statCategories: readonly PublicStatCategory[];
   id?: string;
   title?: string;
 }) {
   const slots = buildBracketSlots(matchups);
   const hasReview = slots.some((slot) => slot.status === "under_review");
-  const rounds = [1, 2, 3] as const;
+  const round = currentRound(slots);
+  const otherRounds = ([1, 2, 3] as const).filter((candidate) => candidate !== round);
 
   return (
     <section id={id} className="border-b border-stone-300 bg-stone-100">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <div className="mb-4">
-          <p className="text-sm font-semibold uppercase text-rose-800">
-            Bracket
-          </p>
+          <p className="text-sm font-semibold uppercase text-rose-800">Bracket</p>
           <h2 className="text-2xl font-black text-stone-950">{title}</h2>
         </div>
 
@@ -232,20 +208,26 @@ export function BracketView({
           </div>
         ) : null}
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          {rounds.map((round) => (
-            <div key={round} className="min-w-0">
-              <div className="mb-3 border-b-4 border-stone-950 pb-2">
-                <h3 className="text-lg font-black text-stone-950">
-                  {roundLabel(round)}
-                </h3>
-                <div className="mt-1 font-mono text-xs font-semibold uppercase text-stone-500">
-                  Week {slots.find((slot) => slot.round === round)?.week}
-                </div>
-              </div>
-              <div className="grid gap-3">
+        <RoundHeading round={round} />
+        <div className="grid gap-5">
+          {slots
+            .filter((slot) => slot.round === round)
+            .map((slot) => (
+              <MatchupBoxScore
+                key={slot.id}
+                slot={slot}
+                statCategories={statCategories}
+              />
+            ))}
+        </div>
+
+        <div className="mt-10 grid gap-8 lg:grid-cols-2">
+          {otherRounds.map((other) => (
+            <div key={other} className="min-w-0">
+              <RoundHeading round={other} />
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
                 {slots
-                  .filter((slot) => slot.round === round)
+                  .filter((slot) => slot.round === other)
                   .map((slot) => (
                     <MatchupCard key={slot.id} slot={slot} />
                   ))}

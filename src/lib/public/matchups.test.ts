@@ -23,6 +23,7 @@ function team(id: string, name: string, finalSeed: number): PublicTeamRef {
     name,
     currentRank: finalSeed,
     finalSeed,
+    record: null,
   };
 }
 
@@ -81,6 +82,8 @@ function matchup(
     overrideWinner: null,
     computedTally: tally,
     liveTally: null,
+    highStats: null,
+    lowStats: null,
     decidedBy: "categories",
     lockedAt: new Date("2026-09-14T06:00:00.000Z"),
     settledAt: new Date("2026-09-15T06:00:00.000Z"),

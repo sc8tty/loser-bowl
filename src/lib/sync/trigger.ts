@@ -26,6 +26,7 @@ import {
   type PublicMatchup,
   type PublicMatchupId,
   type PublicStatCategory,
+  type PublicStatLine,
   type PublicTeamRef,
 } from "@/lib/public/matchups";
 import {
@@ -49,6 +50,7 @@ export type LeagueData =
   | {
       status: "awaiting";
       teams: [];
+      statCategories: [];
       phase: "race";
       lastSuccessAt: null;
       lastUpdatedAt: null;
@@ -57,6 +59,8 @@ export type LeagueData =
       status: "ready";
       teams: LeagueTeam[];
       matchups: PublicMatchup[];
+      // League scoring categories in display order, for the box-score columns.
+      statCategories: readonly PublicStatCategory[];
       phase: BracketPhase;
       lastSuccessAt: Date | null;
       // Public-facing "Updated" freshness: the more recent of the Yahoo sync
@@ -218,8 +222,36 @@ function teamRef(
       name: id,
       currentRank: 0,
       finalSeed: null,
+      record: null,
     }
   );
+}
+
+function toPublicStatLine(stats: Record<string, unknown>): PublicStatLine {
+  const line: PublicStatLine = {};
+
+  for (const [key, value] of Object.entries(stats)) {
+    line[key] =
+      typeof value === "number" || typeof value === "string" || value === null
+        ? value
+        : String(value);
+  }
+
+  return line;
+}
+
+function statLineFor(
+  teamId: string | null,
+  week: number,
+  statLines: readonly StatLineRow[],
+): PublicStatLine | null {
+  if (teamId === null) {
+    return null;
+  }
+
+  const row = statLines.find((line) => line.teamId === teamId && line.week === week);
+
+  return row === undefined ? null : toPublicStatLine(row.stats);
 }
 
 function publicMatchups(
@@ -235,6 +267,11 @@ function publicMatchups(
         name: team.name,
         currentRank: team.currentRank,
         finalSeed: team.finalSeed,
+        record: {
+          wins: team.outcomeTotals.category_wins ?? 0,
+          losses: team.outcomeTotals.category_losses ?? 0,
+          ties: team.outcomeTotals.category_ties ?? 0,
+        },
       },
     ]),
   );
@@ -258,6 +295,8 @@ function publicMatchups(
         overrideWinner: teamRef(matchup.overrideWinnerTeamId, teamsById),
         computedTally: parseComputedTally(matchup.computedTally),
         liveTally: liveTallyFor(matchup, liveContext),
+        highStats: statLineFor(matchup.highTeamId, matchup.week, liveContext.statLines),
+        lowStats: statLineFor(matchup.lowTeamId, matchup.week, liveContext.statLines),
         decidedBy: toDecidedBy(matchup.decidedBy),
         lockedAt: matchup.lockedAt,
         settledAt: matchup.settledAt,
@@ -379,6 +418,7 @@ export async function getLeagueData(
       return {
         status: "awaiting",
         teams: [],
+        statCategories: [],
         phase: "race",
         lastSuccessAt: null,
         lastUpdatedAt: null,
@@ -416,6 +456,7 @@ export async function getLeagueData(
       phase: currentPhase,
       lastSuccessAt,
       lastUpdatedAt,
+      statCategories: settingsRows[0]?.statCategories ?? [],
       matchups: publicMatchups(matchupRows, teamRows, {
         statLines: statLineRows,
         statCategories: settingsRows[0]?.statCategories ?? null,
@@ -435,6 +476,7 @@ export async function getLeagueData(
       return {
         status: "awaiting",
         teams: [],
+        statCategories: [],
         phase: "race",
         lastSuccessAt: null,
         lastUpdatedAt: null,
