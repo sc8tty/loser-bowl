@@ -145,7 +145,8 @@ describe("HomePage phase rendering", () => {
     expect(html).toContain("Lander&#x27;s League Loser Bowl Champion");
     expect(html).toContain("Team 9");
     expect(html).toContain("View the full bracket");
-    expect(html).toContain("Full Bracket");
+    expect(html).toContain('id="full-bracket"');
+    expect(html).toContain("Semifinal 1");
   });
 });
 
