@@ -133,11 +133,17 @@ export function MatchupCard({ slot }: { slot: PublicMatchupSlot }) {
           <StatusBadge matchup={slot} upstreamUnderReview={slot.upstreamUnderReview} />
         </div>
         <div className="grid gap-2">
-          <TeamSlot team={slot.highTeam} winner={winner?.id === slot.highTeam?.id} />
+          <TeamSlot
+            team={slot.highTeam}
+            winner={winner !== null && winner.id === slot.highTeam?.id}
+          />
           <div className="text-center text-xs font-black uppercase text-stone-400">
             vs
           </div>
-          <TeamSlot team={slot.lowTeam} winner={winner?.id === slot.lowTeam?.id} />
+          <TeamSlot
+            team={slot.lowTeam}
+            winner={winner !== null && winner.id === slot.lowTeam?.id}
+          />
         </div>
       </div>
 

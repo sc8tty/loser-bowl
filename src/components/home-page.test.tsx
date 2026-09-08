@@ -181,4 +181,21 @@ describe("HomePage live tally cards", () => {
     expect(html).toContain("15 min ago");
     expect(html).toContain("Sep 8, 11:45 AM PDT");
   });
+
+  it("does not paint TBD slots or live (undecided) teams as winners", () => {
+    const html = render({
+      status: "ready",
+      phase: "bracket",
+      teams: [leagueTeam(9), leagueTeam(16)],
+      lastSuccessAt: null,
+      lastUpdatedAt: null,
+      matchups: [
+        matchup({ status: "pending", computedWinner: null, computedTally: null, decidedBy: null }),
+      ],
+    });
+
+    // No winner anywhere on the page: every slot is either a real undecided
+    // team or a TBD placeholder, and neither may get the emerald winner box.
+    expect(html).not.toContain("bg-emerald-800");
+  });
 });
