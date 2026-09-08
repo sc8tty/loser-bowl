@@ -169,6 +169,11 @@ end-to-end afterward with a real empty-commit push: Vercel auto-deployed and wen
   import + seed lock, instead of a stale "37 d ago" reading from an old dev-era Yahoo test.
 
 ## Manual mode — the operational loop going forward
+**Yahoo league URL:** <https://baseball.fantasysports.yahoo.com/league/lander> (Lander's
+League, 2026). Standings tab → each team → Stats tab. Requires a logged-in Yahoo session in
+whatever browser profile is doing the scrape (Scott logs in; Claude never handles the
+credentials).
+
 Until Yahoo access lands (if it ever does), the weekly cadence is:
 1. Visit the live Yahoo league site, pull each of the 8 Loser Bowl teams' current stats
    (Standings tab → click into each team → "Stats" tab, correct date filter for the day).
