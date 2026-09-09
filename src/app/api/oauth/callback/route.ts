@@ -1,8 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { type NextRequest } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 
-import { adminRedirect } from "@/lib/admin/responses";
 import { exchangeCodeForTokens } from "@/lib/yahoo/oauth";
 import { storeTokens } from "@/lib/yahoo/tokens";
 
@@ -15,11 +14,24 @@ function stateMatches(received: string, expected: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/**
+ * Sends the browser to an UNGUARDED result page rather than straight to /admin.
+ * The admin session cookie is sameSite=strict, and the browser withholds it for
+ * every hop of a redirect chain a cross-site page began — so landing directly on
+ * /admin from Yahoo bounces to the login screen and loses the result.
+ */
+function donePage(request: NextRequest, status: string): NextResponse {
+  const url = new URL("/oauth/done", request.url);
+  url.searchParams.set("status", status);
+
+  return NextResponse.redirect(url, 303);
+}
+
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
 
   if (url.searchParams.has("error")) {
-    return adminRedirect(request, { error: "yahoo_denied" });
+    return donePage(request, "denied");
   }
 
   const state = url.searchParams.get("state");
@@ -30,13 +42,13 @@ export async function GET(request: NextRequest) {
     cookieState === undefined ||
     !stateMatches(state, cookieState)
   ) {
-    return adminRedirect(request, { error: "yahoo_state" });
+    return donePage(request, "state");
   }
 
   const code = url.searchParams.get("code");
 
   if (!code) {
-    return adminRedirect(request, { error: "yahoo_code" });
+    return donePage(request, "code");
   }
 
   try {
@@ -48,7 +60,7 @@ export async function GET(request: NextRequest) {
       scope: tokens.scope,
     });
 
-    const response = adminRedirect(request, { notice: "yahoo_connected" });
+    const response = donePage(request, "connected");
 
     response.cookies.set({
       name: "yahoo_oauth_state",
@@ -70,6 +82,6 @@ export async function GET(request: NextRequest) {
       `Yahoo OAuth code exchange failed: ${error instanceof Error ? error.message : String(error)}`,
     );
 
-    return adminRedirect(request, { error: "yahoo_exchange" });
+    return donePage(request, "exchange");
   }
 }

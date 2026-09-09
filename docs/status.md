@@ -360,7 +360,59 @@ running total only moves in the direction that day's box score implies (never go
 - The bracket's live tally (see top of this doc) updates immediately on import; the engine's
   own computed tally (provisional → final) only lands once the round's last day passes.
 
-## External — Yahoo API access (unchanged this session; still pending)
+## Yahoo API access LANDED and OAuth2 is connected (2026-09-09)
+Yahoo approved **Fantasy Sports - Read** on the developer account. Their email said to check
+the existing app and, failing that, create a new one — the existing app never showed the
+permission, a new one did. App is **"Lander's League Loser Bowl"**: Confidential Client,
+Fantasy Sports - Read only (OpenID Connect and TW Auction both unchecked — the first is for
+using Yahoo as a login provider, which this project doesn't do; the second is Yahoo Taiwan
+Auctions, unrelated). Redirect URI `https://loserbowl.landermedia.com/api/oauth/callback`.
+Confirmed access was live **before** building anything by loading the authorize URL and
+seeing Yahoo render the consent screen rather than an error — worth doing first, it takes 30
+seconds and their "send us your Client ID so we can complete your access" wording implies a
+gate that (for this account) had already opened.
+
+**The flow** (`94c5781`, callback landing fixed the same day): `/api/oauth/start` is
+admin-guarded, mints a `state` nonce, and redirects to Yahoo. `/api/oauth/callback` verifies
+that nonce and exchanges the code. Env vars: `YAHOO_CLIENT_ID`, `YAHOO_CLIENT_SECRET`,
+`YAHOO_REDIRECT_URI` (local **and** Vercel Production; Vercel needs a redeploy to pick up new
+env vars — they're snapshotted at deploy time).
+
+### Three cookie/OAuth traps, all of which cost time here
+- **The callback must NOT be admin-guarded.** The admin session cookie is `sameSite=strict`,
+  so it is not sent when Yahoo redirects the browser to our domain. Guarding the callback
+  would break the flow outright. The `state` nonce is the CSRF defense there instead, and its
+  own cookie must be `sameSite=lax` to survive that same hop.
+- **`sameSite=strict` is withheld for the WHOLE redirect chain, not just the cross-site hop.**
+  Redirecting the callback straight to `/admin` looked same-site (our domain → our domain) and
+  still lost the cookie, because the browser judges by who *initiated* the chain — Yahoo did.
+  Result: a successful connection dumped you on the login screen with the success banner gone,
+  looking exactly like a failure. Fixed with an unguarded `/oauth/done` result page; reaching
+  `/admin` from a link there is same-site-initiated, so the cookie is sent. **If tokens seem
+  not to have saved after an OAuth round trip, check the `oauth_tokens` row before believing
+  the UI** — here they had saved correctly the whole time.
+- **Yahoo requires `redirect_uri` on the refresh request too**, unlike most OAuth2 providers,
+  and its refresh response may omit `refresh_token` — keep the stored one when it does, or
+  reauth silently breaks weeks later. Both are covered by tests in `src/lib/yahoo/`.
+
+### Production admin had never worked (found while doing the above)
+`ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET` were **never set in Vercel** — only locally.
+`/admin/login` returns `?error=config` without them, so production admin was unreachable since
+launch for *any* password. It fails safe (no bypass), but it means the "lost" admin password
+was never usable in production anyway. Both are now set in Production.
+`scripts/reset-admin-password.sh` regenerates the hash (prompts twice, no echo, backs up
+`.env.local`, applies the `$`-escaping below).
+
+### `.env.local` quoting silently diverges local from Vercel
+`ADMIN_SESSION_SECRET` was stored quoted (`"…"`). dotenv strips surrounding quotes locally, so
+the app saw the bare value — but piping that same line into `vercel env add` stores the quotes
+**literally**, giving production a different key than local (Vercel does warn: `WARNING! Value
+includes surrounding quotes`). Strip quotes when piping, and prefer leaving values unquoted in
+the file. This compounds with the pre-existing bcrypt rule already noted above: `.env.local`
+needs `$` backslash-escaped, Vercel needs it raw — so the hash must be *un*-escaped on the way
+up (`sed 's/\\\$/$/g'`).
+
+## External — Yahoo API access (superseded by the section above; kept for the timeline)
 - Yahoo Fantasy API access application submitted 2026-07-31. Still **not approved** as of the
   last check (2026-08-26) — 2 follow-up emails sent (2026-08-17, 2026-08-26, the second
   cc'ing sports-dev-guide@notify.yahoo.com and noting the signed agreement up front). No

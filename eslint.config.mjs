@@ -12,6 +12,10 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Spawned-task worktrees are full checkouts (with their own .next output)
+    // living inside the repo. CI never sees them, so without this local lint
+    // reports thousands of problems that CI does not.
+    ".claude/**",
   ]),
 ]);
 
