@@ -286,7 +286,22 @@ the week's running total has to be built by hand, one day at a time:
    `innings_pitched` column already uses. **OPS stays "replace with the latest day"** — it
    doesn't reduce to this trick because Yahoo doesn't expose the raw components (batter
    BB/HBP/SF) even indirectly, unlike ERA/WHIP where the single per-day ratio plus that day's
-   IP is enough to solve for the missing component.
+   IP is enough to solve for the missing component. **OPS is at-bat-weighted** across the
+   days pulled — `OPS_week = Σ(OPS_d × AB_d) / Σ(AB_d)` (Scott's call 2026-09-09). Be clear
+   about the difference: the innings-weighting above is a *derivation* (provably exact); this
+   one is an *approximation*, because OPS = OBP + SLG and OBP's denominator is
+   `AB + BB + HBP + SF`, of which Yahoo exposes only AB. It is right for the SLG half and
+   close for the OBP half, and it is enormously better than the "latest day" rule it replaced:
+   mid-day on 2026-09-09 that rule would have posted **.000** OPS for Trout's Honor (0-for-6
+   so far that afternoon) while discarding three days in which they put up 9 R, 5 2B, 3 HR and
+   15 RBI — weighted, they read .877. If exactness ever matters more than effort, SLG *can* be
+   computed exactly from stats already tracked (`TB` from H/2B/3B/HR over AB); only the OBP
+   half is genuinely unrecoverable.
+
+   **Per-day isolated values are NOT persisted anywhere** — the CSVs store the running
+   cumulative, but the weighting needs each day's own ratio and IP/AB. Day 1 is recoverable
+   (its cumulative *is* its isolated value), but from day 2 on, recomputing means re-pulling
+   that date from Yahoo. Budget for that, or add a per-day ledger.
 5. **Before importing, re-check the previous day's numbers for late revisions** — Yahoo
    occasionally posts a stat correction after a day is final. Pull the previous date again
    and diff it against what's already imported; if it changed, that's a real correction and
@@ -394,6 +409,30 @@ env vars — they're snapshotted at deploy time).
 - **Yahoo requires `redirect_uri` on the refresh request too**, unlike most OAuth2 providers,
   and its refresh response may omit `refresh_token` — keep the stored one when it does, or
   reauth silently breaks weeks later. Both are covered by tests in `src/lib/yahoo/`.
+
+### STILL BLOCKED: the API returns 403 — OAuth working is NOT the same as API access
+Every Fantasy API endpoint returns **403 "This application is not authorized to perform this
+action."** — including `/game/mlb`, which needs no league at all, so it is a blanket
+application-level rejection, not a scope, endpoint, or token fault. Verified 2026-09-09
+against `/game/mlb`, `/users;use_login=1/games`, `/users;use_login=1/profile`, and
+`/league/458.l.16468`.
+
+**The lesson, learned by getting it wrong:** Yahoo rendering the OAuth **consent screen**
+proves only that the *app* is configured with the Fantasy scope. It says nothing about whether
+Yahoo has authorized that Client ID against the API itself. Their "send us your Client ID so
+we can complete your access" meant exactly what it said, and it was read here as bookkeeping —
+which cost a build cycle. **The real probe is a live API call:**
+`GET https://fantasysports.yahooapis.com/fantasy/v2/game/mlb?format=json` with a Bearer token.
+403 = still gated; JSON = actually open. Re-run that before assuming access has landed.
+
+Also unknown until access opens: the real `LEAGUE_KEY` (env var is unset; the league id is
+16468 but the `<game_key>.l.<id>` prefix was a guess). Discover it via
+`/users;use_login=1/games;game_keys=mlb/leagues` once calls succeed.
+
+**What IS confirmed working:** authorization → code exchange → token storage, and a live
+**refresh** against Yahoo (HTTP 200, and Yahoo *did* return a new `refresh_token`, so that
+branch is exercised, not just unit-tested). Manual CSV mode stays the source of truth
+meanwhile.
 
 ### Production admin had never worked (found while doing the above)
 `ADMIN_PASSWORD_HASH` and `ADMIN_SESSION_SECRET` were **never set in Vercel** — only locally.
