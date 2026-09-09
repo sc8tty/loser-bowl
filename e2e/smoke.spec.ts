@@ -8,6 +8,20 @@ async function gotoScenario(page: Page, scenario: "bracket" | "champion") {
   await page.goto("/");
 }
 
+/**
+ * Box scores render every matchup twice: once in the phone-only `StackedHeader`
+ * (`sm:hidden`) and once in the desktop grid (`hidden sm:grid`). The phone copy
+ * comes first in the DOM, so at the Desktop Chrome viewport these tests run in,
+ * a bare `.first()` resolves to a hidden node and times out.
+ *
+ * `exact: true` also matters: `getByText` does a case-insensitive substring
+ * match by default, so a loose "final" additionally matches the "Final" heading
+ * and — less obviously — "Semifinals".
+ */
+function visibleText(page: Page, text: string) {
+  return page.getByText(text, { exact: true }).filter({ visible: true }).first();
+}
+
 test("race phase renders standings, lock countdown, and projected pairings", async ({
   page,
 }) => {
@@ -41,11 +55,11 @@ test("bracket phase renders mixed matchup states and TBD slots", async ({ page }
   await expect(
     page.getByRole("heading", { name: "Final", exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText("final").first()).toBeVisible();
-  await expect(page.getByText("provisional").first()).toBeVisible();
-  await expect(page.getByText("under review").first()).toBeVisible();
-  await expect(page.getByText("pending").first()).toBeVisible();
-  await expect(page.getByText("TBD").first()).toBeVisible();
+  await expect(visibleText(page, "final")).toBeVisible();
+  await expect(visibleText(page, "provisional")).toBeVisible();
+  await expect(visibleText(page, "under review")).toBeVisible();
+  await expect(visibleText(page, "pending")).toBeVisible();
+  await expect(visibleText(page, "TBD")).toBeVisible();
   await expect(page.getByText("Commissioner review in progress")).toBeVisible();
 });
 
