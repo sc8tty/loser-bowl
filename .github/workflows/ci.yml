@@ -26,6 +26,17 @@ jobs:
       - name: Run Vitest
         run: npm test
 
+      - name: Typecheck
+        # `next build` type checks only the files reachable from the app's
+        # module graph, so test/script/e2e files were never checked in CI.
+        # tsc uses tsconfig.json's include, which covers the whole repo.
+        run: npm run typecheck
+
+      - name: Lint
+        # Next 16 removed `next lint`; `next build` no longer runs ESLint at
+        # all, so this step is the only thing linting the repo in CI.
+        run: npm run lint
+
       - name: Build
         run: npm run build
 
