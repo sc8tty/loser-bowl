@@ -298,10 +298,18 @@ the week's running total has to be built by hand, one day at a time:
    computed exactly from stats already tracked (`TB` from H/2B/3B/HR over AB); only the OBP
    half is genuinely unrecoverable.
 
-   **Per-day isolated values are NOT persisted anywhere** — the CSVs store the running
-   cumulative, but the weighting needs each day's own ratio and IP/AB. Day 1 is recoverable
-   (its cumulative *is* its isolated value), but from day 2 on, recomputing means re-pulling
-   that date from Yahoo. Budget for that, or add a per-day ledger.
+   **SOLVED 2026-09-09 — do not hand-compute any of this.** `data/stats/days/week<N>-<date>.csv`
+   is now a **per-day ledger**: one file per calendar day holding each team's ISOLATED values
+   exactly as Yahoo reported them (0-IP days keep `-` in the ratio columns, `0` in the counting
+   ones). `scripts/roll-up-week.ts <week>` reads every day file for that week and emits the
+   cumulative CSV the importer wants, applying all of the above — sum, innings-weighted ERA/WHIP,
+   exact K/9, at-bat-weighted OPS — with the math unit-tested in `scripts/lib/week-rollup.test.ts`.
+   The daily loop is now: **scrape → append one day file → `roll-up-week` → `--dry-run` →
+   import**. Never recompute a cumulative by hand; the ad-hoc-script version of this shipped
+   two separate arithmetic bugs in two days (see below).
+
+   The roll-up weights by **outs** (integers), not fractional innings, so the thirds notation
+   can't accumulate float drift.
 5. **Before importing, re-check the previous day's numbers for late revisions** — Yahoo
    occasionally posts a stat correction after a day is final. Pull the previous date again
    and diff it against what's already imported; if it changed, that's a real correction and
