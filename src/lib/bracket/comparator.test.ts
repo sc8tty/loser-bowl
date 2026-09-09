@@ -9,31 +9,26 @@ import {
 const categories = [
   {
     slug: "hr",
-    display_name: "HR",
     sort_order: "desc",
     is_only_display_stat: false,
   },
   {
     slug: "avg",
-    display_name: "AVG",
     sort_order: "desc",
     is_only_display_stat: false,
   },
   {
     slug: "era",
-    display_name: "ERA",
     sort_order: "asc",
     is_only_display_stat: false,
   },
   {
     slug: "whip",
-    display_name: "WHIP",
     sort_order: "asc",
     is_only_display_stat: false,
   },
   {
     slug: "innings_pitched",
-    display_name: "IP",
     sort_order: "desc",
     is_only_display_stat: true,
   },

@@ -12,6 +12,7 @@ import {
   canRenderMatchupSettleControl,
   canRenderSeedLockSettleControl,
 } from "@/lib/admin/state";
+import { getYahooConnectionStatus } from "@/lib/yahoo/tokens";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,6 +50,11 @@ function pageMessage(type: "notice" | "error", value: string | undefined): strin
     stale_state: "That action was already handled by another request.",
     sync_error: "Admin sync failed. Check the sync log for details.",
     database: "Database is not available for that admin action.",
+    yahoo_connected: "Yahoo connected. Access and refresh tokens are stored.",
+    yahoo_denied: "Yahoo authorization was declined.",
+    yahoo_state: "Yahoo callback rejected: the security token did not match. Start the connection again.",
+    yahoo_code: "Yahoo callback arrived without an authorization code.",
+    yahoo_exchange: "Yahoo authorization code could not be exchanged for tokens. Check the server log.",
   };
 
   if (value === undefined) {
@@ -565,18 +571,43 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function YahooHealthSection() {
+async function YahooHealthSection() {
+  const status = await getYahooConnectionStatus();
+
   return (
     <section className="bg-stone-100">
       <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
         <SectionHeading eyebrow="Yahoo" title="Connection Health" />
-        <div className="border border-rose-300 bg-rose-50 px-4 py-5">
-          <StatusBadge status="under_review" />
-          <p className="mt-3 text-sm font-semibold text-rose-950">
-            Yahoo not connected - OAuth is not configured yet. No re-auth link is
-            available until the OAuth bootstrap route ships.
-          </p>
-        </div>
+        {status.connected ? (
+          <div className="border border-emerald-300 bg-emerald-50 px-4 py-5">
+            <StatusBadge status="final" />
+            <p className="mt-3 text-sm font-semibold text-emerald-950">
+              Yahoo connected. Access token expires{" "}
+              {formatDateTime(status.expiresAt)}; it refreshes automatically.
+              Authorized {formatDateTime(status.updatedAt)}.
+            </p>
+            <a
+              href="/api/oauth/start"
+              className="mt-4 inline-flex border border-stone-800 px-4 py-2 text-sm font-black uppercase text-stone-950 hover:bg-stone-950 hover:text-white"
+            >
+              Reconnect Yahoo
+            </a>
+          </div>
+        ) : (
+          <div className="border border-rose-300 bg-rose-50 px-4 py-5">
+            <StatusBadge status="under_review" />
+            <p className="mt-3 text-sm font-semibold text-rose-950">
+              Yahoo not connected. Authorize the league account to enable API
+              syncing.
+            </p>
+            <a
+              href="/api/oauth/start"
+              className="mt-4 inline-flex border border-rose-700 bg-rose-700 px-4 py-2 text-sm font-black uppercase text-white hover:bg-rose-800"
+            >
+              Connect Yahoo
+            </a>
+          </div>
+        )}
       </div>
     </section>
   );
