@@ -15,9 +15,12 @@ export const SUPPORT_STAT_SLUGS = [
 // Recomputed from support stats — any provided value for these is ignored (with a warning).
 const RATIO_SLUGS = ["avg"] as const;
 
-// Trusted as transcribed from Yahoo directly, not derived — Yahoo never exposes the raw
-// components (earned runs/hits allowed, batter BB/HBP/SF) needed to compute these ourselves
-// (see SEEDED_LEAGUE_SETTINGS_NOTE).
+// Trusted as transcribed into the CSV, not computed by this parser. That does NOT mean the
+// value transcribed here has to be "whatever Yahoo showed for the most recent day" — for
+// era/whip/k9 it should be the innings-weighted cumulative across every day pulled so far
+// this week (see docs/status.md step 4, and SEEDED_LEAGUE_SETTINGS_NOTE, corrected
+// 2026-09-08). Only OPS is genuinely stuck at "latest day," since Yahoo never exposes
+// batter BB/HBP/SF even indirectly.
 const DIRECT_RATIO_SLUGS = ["ops", "era", "whip", "k9"] as const;
 
 const countingStat = z

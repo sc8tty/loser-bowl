@@ -215,11 +215,25 @@ the week's running total has to be built by hand, one day at a time:
    cumulative total is whatever the last imported CSV for this week already contains — read
    it back from `data/stats/` (the most recent `week<N>-*.csv` for the current week) rather
    than re-deriving it from memory.
-4. **Replace OPS/ERA/WHIP/K9 with the values from the day just pulled** — don't try to
-   combine them with the previous day's ratios. This is a known, accepted limitation: Yahoo
-   never exposes the raw components (earned runs allowed, hits allowed, batter BB/HBP/SF)
-   needed to compute a true cumulative ratio, so the site shows the most recent day's ratio
-   as the best available estimate until either a fresh pull replaces it or the round closes.
+4. **Recompute ERA/WHIP/K9 as an innings-weighted average across every day pulled so far —
+   never just overwrite with the latest day's value.** Corrected 2026-09-08 (Scott caught
+   this): an earlier version of this doc said to replace these with "the day just pulled,"
+   which silently threw away real pitching performance on any day a team happened to have 0
+   IP — e.g. Baseball Furries had a real 4.1-IP, 2.08-ERA day Monday, then 0 IP Tuesday, and
+   the old method would have reported their week ERA as "-" (undefined) instead of 2.08. The
+   fix, for each day `d` pulled so far this week: `ERA_week = Σ(ERA_d × IP_d) / Σ(IP_d)`,
+   same formula for WHIP. This is mathematically exact, not an approximation — it's
+   equivalent to reconstructing that day's earned-runs/hits-allowed from Yahoo's reported
+   ratio (`ER_d = ERA_d × IP_d / 9`, `H_d = WHIP_d × IP_d − BB_d`) and summing those, just
+   without the extra step. **K/9 doesn't need this at all** — K and IP are both already
+   exact tracked counting stats (summed like R or RBI), so just use
+   `K9_week = K_cum × 9 / IP_cum` directly from the running cumulative totals, no per-day
+   weighting required. IP-decimal conversion for the weighting: Yahoo's `X.1`/`X.2` notation
+   is thirds of an inning (`X + 1/3` / `X + 2/3`), not tenths — same conversion the
+   `innings_pitched` column already uses. **OPS stays "replace with the latest day"** — it
+   doesn't reduce to this trick because Yahoo doesn't expose the raw components (batter
+   BB/HBP/SF) even indirectly, unlike ERA/WHIP where the single per-day ratio plus that day's
+   IP is enough to solve for the missing component.
 5. **Before importing, re-check the previous day's numbers for late revisions** — Yahoo
    occasionally posts a stat correction after a day is final. Pull the previous date again
    and diff it against what's already imported; if it changed, that's a real correction and
