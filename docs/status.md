@@ -253,7 +253,15 @@ running total only moves in the direction that day's box score implies (never go
   what Yahoo scores (bench excluded). Cell order after the label: batting
   `H/AB, R, 2B, 3B, HR, RBI, SB, AVG, OPS`; pitching `IP, W, BB, K, ERA, WHIP, K/9, NSVH`.
   One-liner that pulls both, run on each team page via the browser JS tool:
-  `const f=id=>[...document.querySelector('#'+id).tFoot.rows[0].cells].map(c=>c.innerText.trim()).filter(x=>x&&x!=='Starting Lineup Totals'); JSON.stringify({bat:f('statTable0'),pit:f('statTable1')})`
+  `function ex(c){const o=[];c.forEach(c=>{const v=c.innerText.trim();const n=c.colSpan||1;for(let i=0;i<n;i++)o.push(v)});return o} const f=id=>{const t=document.querySelector('#'+id);const h=ex([...t.tHead.rows[t.tHead.rows.length-1].cells]);const b=ex([...t.tFoot.rows[0].cells]);const o={};h.forEach((k,i)=>{if(k)o[k]=b[i]||'-'});return o}; JSON.stringify({bat:f('statTable0'),pit:f('statTable1')})`
+  Read the result by header label (`R`, `2B`, ... `NSVH`), not array position — the header's
+  "Action" column has `colSpan="2"` but the footer's matching cell has `colSpan="1"`, so a
+  naive same-index header/footer pairing (or a filter that drops empty cells) silently shifts
+  every column after it by one. Confirmed 2026-09-08: an earlier plain
+  `.filter(x=>x&&x!=='Starting Lineup Totals')` version of this one-liner produced `R: "0/5"`
+  (actually the H/AB value) for a team with 0 IP — looked plausible, was wrong. This version
+  expands every cell by its `colSpan` on both rows before pairing, which fixes the alignment
+  regardless of how many innings have been pitched.
 - `/b1/16468/standings` redirects to **Live Standings** (a matchup-projection view with a
   different table); the real standings are League → Standings on the league home
   (`?module=standings&lhst=stand`). Team-number map above came from that page's links. The
