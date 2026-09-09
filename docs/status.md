@@ -109,13 +109,25 @@ the ERA/WHIP cumulative fix, and the Yahoo OAuth2 commit — has gone red. So th
 noticed the `tsc` errors was never "CI was green." It's that **the CI signal has been ignored
 for ~40 hours**, which is the more expensive problem: a red build nobody reads catches
 nothing, and adding a Typecheck step to it changes that only if someone watches the result.
-The failure itself is a **stale e2e assertion, not a product bug** — `e2e/smoke.spec.ts:44`,
-`await expect(page.getByText("final").first()).toBeVisible()`. The locator resolves to 23
-matching `<span>final</span>` badges and the *first* one is hidden, so `.first()` picks an
-invisible node and times out. The other 3 smoke tests pass. Untouched here deliberately —
-separate finding, separate fix. **Fixing this is the highest-value next CI task**; until it's
-green, the new Typecheck and Lint steps are just two more passing rows in a run that still
-reports failure.
+**Fixed in the same PR** once Scott asked for it. The failure was a **stale e2e assertion,
+not a product bug** — `e2e/smoke.spec.ts:44`,
+`await expect(page.getByText("final").first()).toBeVisible()`. Root cause: box scores render
+every matchup **twice** — once in the phone-only `StackedHeader` (`sm:hidden`) and once in
+the desktop grid (`hidden sm:grid`) — and the phone copy comes **first in the DOM**. Tests run
+at the Desktop Chrome viewport, so `.first()` resolved to a hidden node and timed out.
+(Playwright's `23 × locator resolved to ...` in the log is 23 *polling retries* against the
+same element over the 10s timeout, not 23 separate matches — easy to misread.) A second, quieter
+flaw in the same lines: `getByText` does a **case-insensitive substring** match by default, so
+a loose `"final"` also matched the `Final` heading and — less obviously — `Semifinals`.
+Fixed with a `visibleText()` helper using `{ exact: true }` + `.filter({ visible: true })`,
+applied to all five assertions; the four after the failing line had never been reached, so they
+were untested and shared the flaw. Verified with a **negative control** (a bogus label makes the
+assertion fail with `element(s) not found`, proving they aren't passing vacuously). CI went
+green at run `34397591924` — the first passing run since 2026-09-08 02:56, ending a 19-run red
+streak.
+
+**The habit worth keeping from this:** the CI result is only worth adding steps to if someone
+reads it. Check `gh run list --branch main` before assuming a check "never caught" something.
 
 ---
 
