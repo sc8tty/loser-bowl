@@ -79,9 +79,9 @@ why CI never caught them.)
 
 ### Found and fixed: CI never typechecked or linted, so `tsc` errors sat on `main`
 Those five `comparator.test.ts` errors were tolerated as "test-only" precisely because
-nothing failed on them — `npx tsc --noEmit` had been red on `main` for some time while CI
-stayed green the whole way. The workflow was **not** thin (it already ran Vitest, `npm run
-build`, and a Playwright Chromium smoke suite); it just had two real holes:
+nothing failed on them — `npx tsc --noEmit` had been red on `main` for some time and no CI
+step ever ran it. The workflow was **not** thin (it already ran Vitest, `npm run build`, and
+a Playwright Chromium smoke suite); it had two real holes:
 - **`next build` type checks only the app's module graph**, not what `tsconfig.json`'s
   `include` selects (`**/*.ts` — the whole repo). Test files, `scripts/`, and `e2e/` were
   never checked. Next's docs only admit this by contrast, in the note on the opt-in
@@ -99,6 +99,23 @@ harmless today (the glob just matches nothing, confirmed by a cold run with no `
 if typed routes are ever enabled and source files import generated route types, move the
 Typecheck step after Build rather than dropping it. Full write-up in the
 `nextjs-build-green-but-tsc-fails` skill.
+
+### Bigger problem found while verifying the above: CI has been red on `main` since Sep 8
+Pushing the CI change and watching it actually run turned up something worse than the missing
+typecheck. **`main` has failed CI for 18 consecutive runs.** Last green run was
+`style(bracket): light-blue winning cells...` at **2026-09-08 02:56**; every push since —
+through the favicon work, the phone layout, the NSVH parser fix, all four Week 24 stat pulls,
+the ERA/WHIP cumulative fix, and the Yahoo OAuth2 commit — has gone red. So the reason nobody
+noticed the `tsc` errors was never "CI was green." It's that **the CI signal has been ignored
+for ~40 hours**, which is the more expensive problem: a red build nobody reads catches
+nothing, and adding a Typecheck step to it changes that only if someone watches the result.
+The failure itself is a **stale e2e assertion, not a product bug** — `e2e/smoke.spec.ts:44`,
+`await expect(page.getByText("final").first()).toBeVisible()`. The locator resolves to 23
+matching `<span>final</span>` badges and the *first* one is hidden, so `.first()` picks an
+invisible node and times out. The other 3 smoke tests pass. Untouched here deliberately —
+separate finding, separate fix. **Fixing this is the highest-value next CI task**; until it's
+green, the new Typecheck and Lint steps are just two more passing rows in a run that still
+reports failure.
 
 ---
 
