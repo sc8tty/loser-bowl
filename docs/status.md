@@ -73,8 +73,32 @@ is `gpt-5.4`; override per run with `codex exec -m <model>`.
 ### The manual-mode loop is now: scrape → CSV → import → site is current
 No extra step. After `npm run import:stats -- path/to.csv` succeeds, the live site
 (dynamic rendering, no cache) shows the new tallies and "Updated just now" on the next
-request. The pre-existing `tsc` errors in `comparator.test.ts` (`display_name` on
-`WeekStatCategory`, five of them) predate this session and are test-only.
+request. (The five pre-existing `tsc` errors in `comparator.test.ts` noted here originally —
+`display_name` on `WeekStatCategory` — were fixed in `94c5781`; see the CI entry below for
+why CI never caught them.)
+
+### Found and fixed: CI never typechecked or linted, so `tsc` errors sat on `main`
+Those five `comparator.test.ts` errors were tolerated as "test-only" precisely because
+nothing failed on them — `npx tsc --noEmit` had been red on `main` for some time while CI
+stayed green the whole way. The workflow was **not** thin (it already ran Vitest, `npm run
+build`, and a Playwright Chromium smoke suite); it just had two real holes:
+- **`next build` type checks only the app's module graph**, not what `tsconfig.json`'s
+  `include` selects (`**/*.ts` — the whole repo). Test files, `scripts/`, and `e2e/` were
+  never checked. Next's docs only admit this by contrast, in the note on the opt-in
+  `experimental.useTypeScriptCli` flag ("The CLI checks the complete project selected by
+  your `tsconfig` file. This includes test files"). Vitest doesn't typecheck either, so
+  nothing in the pipeline looked at that file.
+- **Next 16 removed `next lint`** and the `eslint` next.config option, so `next build` runs
+  **zero** ESLint. Lint had no CI coverage at all.
+**Fixed** by adding a `"typecheck": "tsc --noEmit"` script and two steps to
+`.github/workflows/ci.yml` (Typecheck, then Lint — after Run Vitest, before Build). Both
+verified green on current `main` before adding, measured cold: `tsc` ~2.2s, `eslint` ~2.7s
+over 95 files — negligible next to the existing build + Playwright steps. Caveat for later:
+`tsconfig.json` includes `.next/types/**/*.ts`, which doesn't exist before the Build step —
+harmless today (the glob just matches nothing, confirmed by a cold run with no `.next`), but
+if typed routes are ever enabled and source files import generated route types, move the
+Typecheck step after Build rather than dropping it. Full write-up in the
+`nextjs-build-green-but-tsc-fails` skill.
 
 ---
 
