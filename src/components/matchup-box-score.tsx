@@ -169,6 +169,36 @@ function Avatar({
   );
 }
 
+// Worn-ink texture: fractal noise mapped to alpha so parts of the impression
+// print lighter, the way a real rubber stamp never inks evenly.
+const STAMP_INK_MASK =
+  "url(\"data:image/svg+xml;utf8," +
+  encodeURIComponent(
+    "<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'>" +
+      "<filter id='g'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/>" +
+      "<feColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 2.2 -0.55'/></filter>" +
+      "<rect width='100%' height='100%' filter='url(%23g)'/></svg>",
+  ) +
+  "\")";
+
+function LoserStamp({ size }: { size: "sm" | "lg" }) {
+  return (
+    <span
+      aria-hidden
+      className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-1/2 items-center justify-center"
+    >
+      <span
+        className={`-rotate-12 select-none border-double border-rose-700 px-2 font-black uppercase leading-none tracking-[0.15em] text-rose-700 opacity-80 mix-blend-multiply ${
+          size === "lg" ? "border-[6px] text-3xl py-0.5" : "border-4 text-xl py-px"
+        }`}
+        style={{ maskImage: STAMP_INK_MASK, WebkitMaskImage: STAMP_INK_MASK }}
+      >
+        Loser
+      </span>
+    </span>
+  );
+}
+
 function TeamHeading({
   team,
   side,
@@ -183,10 +213,11 @@ function TeamHeading({
 
   return (
     <div
-      className={`flex min-w-0 items-center gap-3 ${
+      className={`relative flex min-w-0 items-center gap-3 ${
         alignRight ? "flex-row-reverse text-right" : ""
       } ${block}`}
     >
+      {outcome === "loser" ? <LoserStamp size="lg" /> : null}
       <Avatar team={team} size="lg" outcome={outcome} />
       <div className="min-w-0">
         {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
@@ -250,7 +281,12 @@ function StackedSide({
   const block = outcome === null ? "" : `border px-2.5 py-1.5 ${OUTCOME_STYLES[outcome].block}`;
 
   return (
-    <span className={`min-w-0 flex-1 ${align === "right" ? "text-right" : "text-left"} ${block}`}>
+    <span
+      className={`relative block min-w-0 flex-1 ${
+        align === "right" ? "text-right" : "text-left"
+      } ${block}`}
+    >
+      {outcome === "loser" ? <LoserStamp size="sm" /> : null}
       {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
       <span className="block truncate text-base font-black text-stone-950">
         {team?.name ?? "TBD"}
