@@ -1,4 +1,5 @@
 import { LEAGUE_CONFIG } from "@/config/league";
+import { dateKeyInTimeZone } from "@/lib/bracket/phase";
 import { MatchupBoxScore } from "@/components/matchup-box-score";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -47,13 +48,17 @@ function roundDates(round: 1 | 2 | 3): string | null {
 }
 
 /**
- * The round the league is watching right now: the earliest round with any
- * matchup still undecided. Once everything is final, that's the Final.
+ * The round the league is watching right now, by the calendar: the first round
+ * whose week hasn't ended in league time. Deliberately not derived from matchup
+ * status — a finished round stays "provisional" through its correction window,
+ * and going by status left Round 1 on top while the Semifinals were being played.
  */
-export function currentRound(slots: readonly PublicMatchupSlot[]): 1 | 2 | 3 {
-  for (const round of [1, 2, 3] as const) {
-    if (slots.some((slot) => slot.round === round && slot.status !== "final")) {
-      return round;
+export function currentRound(now: Date = new Date()): 1 | 2 | 3 {
+  const today = dateKeyInTimeZone(now, LEAGUE_CONFIG.timeZone);
+
+  for (const round of LEAGUE_CONFIG.rounds) {
+    if (today <= round.end) {
+      return round.round;
     }
   }
 
@@ -165,14 +170,16 @@ export function BracketView({
   matchups,
   statCategories,
   id,
+  now = new Date(),
 }: {
   matchups: readonly PublicMatchup[];
   statCategories: readonly PublicStatCategory[];
   id?: string;
+  now?: Date;
 }) {
   const slots = buildBracketSlots(matchups);
   const hasReview = slots.some((slot) => slot.status === "under_review");
-  const round = currentRound(slots);
+  const round = currentRound(now);
   const otherRounds = ([1, 2, 3] as const).filter((candidate) => candidate !== round);
 
   return (

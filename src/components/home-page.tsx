@@ -122,12 +122,13 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
         ) : data.phase === "race" ? (
           <RaceView data={data} />
         ) : data.phase === "champion" ? (
-          <ChampionView data={data} />
+          <ChampionView data={data} now={now} />
         ) : (
           <BracketView
             id="full-bracket"
             matchups={data.matchups}
             statCategories={data.statCategories}
+            now={now}
           />
         )}
       </main>
@@ -177,8 +178,10 @@ function RaceView({ data }: { data: Extract<LeagueData, { status: "ready" }> }) 
 
 function ChampionView({
   data,
+  now,
 }: {
   data: Extract<LeagueData, { status: "ready" }>;
+  now: Date;
 }) {
   const finalSlot = buildBracketSlots(data.matchups).find(
     (slot) => slot.id === "final",
@@ -228,6 +231,7 @@ function ChampionView({
         id="full-bracket"
         matchups={data.matchups}
         statCategories={data.statCategories}
+        now={now}
       />
     </>
   );
