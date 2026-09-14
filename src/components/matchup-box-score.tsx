@@ -8,7 +8,6 @@ import {
   formatRecord,
   matchupMeta,
   matchupStatusView,
-  ordinal,
   tallyParts,
   type CategoryStatLine,
   type PublicMatchupSlot,
@@ -99,15 +98,57 @@ function teamSubline(team: PublicTeamRef | null): string {
   const record = formatRecord(team);
 
   if (record !== null) {
-    parts.push(`${record} | ${ordinal(team.currentRank)}`);
+    parts.push(record);
   }
 
   return parts.join(" · ");
 }
 
-function Avatar({ team, size }: { team: PublicTeamRef | null; size: "sm" | "lg" }) {
+type Outcome = "winner" | "loser" | null;
+
+function outcomeFor(winner: PublicTeamRef | null, team: PublicTeamRef | null): Outcome {
+  if (winner === null || team === null) {
+    return null;
+  }
+
+  return winner.id === team.id ? "winner" : "loser";
+}
+
+const OUTCOME_STYLES = {
+  winner: {
+    block: "border-emerald-700 bg-emerald-50",
+    label: "text-emerald-900",
+    ring: "border-emerald-700",
+  },
+  loser: {
+    block: "border-rose-700 bg-rose-50",
+    label: "text-rose-900",
+    ring: "border-rose-700",
+  },
+} as const;
+
+function OutcomeLabel({ outcome }: { outcome: Exclude<Outcome, null> }) {
+  return (
+    <span
+      className={`block text-[10px] font-black uppercase leading-none ${OUTCOME_STYLES[outcome].label}`}
+    >
+      {outcome}
+    </span>
+  );
+}
+
+function Avatar({
+  team,
+  size,
+  outcome = null,
+}: {
+  team: PublicTeamRef | null;
+  size: "sm" | "lg";
+  outcome?: Outcome;
+}) {
   const avatar = teamAvatarUrl(team?.id);
   const box = size === "lg" ? "h-16 w-16" : "h-14 w-14";
+  const ring = outcome === null ? "border-stone-200" : `border-2 ${OUTCOME_STYLES[outcome].ring}`;
 
   if (avatar === null) {
     return <span className={`${box} shrink-0 rounded-full bg-stone-200`} aria-hidden />;
@@ -123,47 +164,38 @@ function Avatar({ team, size }: { team: PublicTeamRef | null; size: "sm" | "lg" 
       width={64}
       height={64}
       loading="lazy"
-      className={`${box} shrink-0 rounded-full border border-stone-200 bg-white object-cover`}
+      className={`${box} shrink-0 rounded-full border ${ring} bg-white object-cover`}
     />
-  );
-}
-
-function WinnerTag() {
-  return (
-    <span className="inline-flex shrink-0 border border-emerald-700 bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black uppercase text-emerald-900">
-      Winner
-    </span>
   );
 }
 
 function TeamHeading({
   team,
   side,
-  winner,
+  outcome,
 }: {
   team: PublicTeamRef | null;
   side: "high" | "low";
-  winner: boolean;
+  outcome: Outcome;
 }) {
   const alignRight = side === "low";
+  const block = outcome === null ? "" : `border px-3 py-2 ${OUTCOME_STYLES[outcome].block}`;
 
   return (
     <div
       className={`flex min-w-0 items-center gap-3 ${
         alignRight ? "flex-row-reverse text-right" : ""
-      }`}
+      } ${block}`}
     >
-      <Avatar team={team} size="lg" />
+      <Avatar team={team} size="lg" outcome={outcome} />
       <div className="min-w-0">
-        <span className={`flex items-center gap-2 ${alignRight ? "flex-row-reverse" : ""}`}>
-          <span
-            className={`block truncate text-xl font-black ${
-              team === null ? "text-stone-400" : "text-stone-950"
-            }`}
-          >
-            {team?.name ?? "TBD"}
-          </span>
-          {winner ? <WinnerTag /> : null}
+        {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
+        <span
+          className={`block truncate text-xl font-black ${
+            team === null ? "text-stone-400" : "text-stone-950"
+          }`}
+        >
+          {team?.name ?? "TBD"}
         </span>
         <span className="mt-0.5 block text-xs font-semibold text-stone-500">
           {teamSubline(team)}
@@ -206,7 +238,35 @@ function Score({
   );
 }
 
-/** Phone header, Yahoo-app style: names on top, avatars flanking the score. */
+function StackedSide({
+  team,
+  outcome,
+  align,
+}: {
+  team: PublicTeamRef | null;
+  outcome: Outcome;
+  align: "left" | "right";
+}) {
+  const block = outcome === null ? "" : `border px-2.5 py-1.5 ${OUTCOME_STYLES[outcome].block}`;
+
+  return (
+    <span className={`min-w-0 flex-1 ${align === "right" ? "text-right" : "text-left"} ${block}`}>
+      {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
+      <span className="block truncate text-base font-black text-stone-950">
+        {team?.name ?? "TBD"}
+      </span>
+      <span className="mt-0.5 block text-[11px] font-semibold text-stone-500">
+        {teamSubline(team)}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * Phone header, Yahoo-app style: names on top, avatars flanking the score.
+ * A decided matchup tints each side's block and rings its avatar to match,
+ * since the avatar can't sit inside the block without breaking that layout.
+ */
 function StackedHeader({
   slot,
   tally,
@@ -218,33 +278,19 @@ function StackedHeader({
   status: ReturnType<typeof matchupStatusView>;
   winner: PublicTeamRef | null;
 }) {
-  const highWon = winner !== null && winner.id === slot.highTeam?.id;
-  const lowWon = winner !== null && winner.id === slot.lowTeam?.id;
+  const highOutcome = outcomeFor(winner, slot.highTeam);
+  const lowOutcome = outcomeFor(winner, slot.lowTeam);
 
   return (
     <div className="px-4 py-4 sm:hidden">
       <div className="flex items-start justify-between gap-3">
-        <span className="min-w-0 text-left">
-          <span className="block truncate text-base font-black text-stone-950">
-            {slot.highTeam?.name ?? "TBD"}
-          </span>
-          {highWon ? <WinnerTag /> : null}
-        </span>
-        <span className="min-w-0 text-right">
-          <span className="block truncate text-base font-black text-stone-950">
-            {slot.lowTeam?.name ?? "TBD"}
-          </span>
-          {lowWon ? <WinnerTag /> : null}
-        </span>
+        <StackedSide team={slot.highTeam} outcome={highOutcome} align="left" />
+        <StackedSide team={slot.lowTeam} outcome={lowOutcome} align="right" />
       </div>
       <div className="mt-3 flex items-center justify-between gap-3">
-        <Avatar team={slot.highTeam} size="sm" />
+        <Avatar team={slot.highTeam} size="sm" outcome={highOutcome} />
         <Score tally={tally} slot={slot} status={status} size="sm" />
-        <Avatar team={slot.lowTeam} size="sm" />
-      </div>
-      <div className="mt-3 flex justify-between gap-3 text-[11px] font-semibold text-stone-500">
-        <span className="text-left">{teamSubline(slot.highTeam)}</span>
-        <span className="text-right">{teamSubline(slot.lowTeam)}</span>
+        <Avatar team={slot.lowTeam} size="sm" outcome={lowOutcome} />
       </div>
     </div>
   );
@@ -360,13 +406,13 @@ export function MatchupBoxScore({
         <TeamHeading
           team={slot.highTeam}
           side="high"
-          winner={winner !== null && winner.id === slot.highTeam?.id}
+          outcome={outcomeFor(winner, slot.highTeam)}
         />
         <Score tally={tally} slot={slot} status={status} size="lg" />
         <TeamHeading
           team={slot.lowTeam}
           side="low"
-          winner={winner !== null && winner.id === slot.lowTeam?.id}
+          outcome={outcomeFor(winner, slot.lowTeam)}
         />
       </div>
 
