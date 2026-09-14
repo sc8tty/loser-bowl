@@ -116,12 +116,12 @@ function outcomeFor(winner: PublicTeamRef | null, team: PublicTeamRef | null): O
 
 const OUTCOME_STYLES = {
   winner: {
-    block: "border-emerald-700 bg-emerald-50",
+    block: "bg-emerald-50",
     label: "text-emerald-900",
     ring: "border-emerald-700",
   },
   loser: {
-    block: "border-rose-700 bg-rose-50",
+    block: "bg-rose-50",
     label: "text-rose-900",
     ring: "border-rose-700",
   },
@@ -209,13 +209,13 @@ function TeamHeading({
   outcome: Outcome;
 }) {
   const alignRight = side === "low";
-  const block = outcome === null ? "" : `border px-3 py-2 ${OUTCOME_STYLES[outcome].block}`;
+  const tint = outcome === null ? "" : OUTCOME_STYLES[outcome].block;
 
   return (
     <div
-      className={`relative flex min-w-0 items-center gap-3 ${
+      className={`relative flex min-w-0 items-center gap-3 px-4 py-5 ${
         alignRight ? "flex-row-reverse text-right" : ""
-      } ${block}`}
+      } ${tint}`}
     >
       {outcome === "loser" ? <LoserStamp size="lg" /> : null}
       <Avatar team={team} size="lg" outcome={outcome} />
@@ -278,13 +278,13 @@ function StackedSide({
   outcome: Outcome;
   align: "left" | "right";
 }) {
-  const block = outcome === null ? "" : `border px-2.5 py-1.5 ${OUTCOME_STYLES[outcome].block}`;
+  const tint = outcome === null ? "" : OUTCOME_STYLES[outcome].block;
 
   return (
     <span
-      className={`relative block min-w-0 flex-1 ${
+      className={`relative block min-w-0 flex-1 px-4 py-3 ${
         align === "right" ? "text-right" : "text-left"
-      } ${block}`}
+      } ${tint}`}
     >
       {outcome === "loser" ? <LoserStamp size="sm" /> : null}
       {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
@@ -318,12 +318,12 @@ function StackedHeader({
   const lowOutcome = outcomeFor(winner, slot.lowTeam);
 
   return (
-    <div className="px-4 py-4 sm:hidden">
-      <div className="flex items-start justify-between gap-3">
+    <div className="sm:hidden">
+      <div className="flex items-stretch justify-between gap-2">
         <StackedSide team={slot.highTeam} outcome={highOutcome} align="left" />
         <StackedSide team={slot.lowTeam} outcome={lowOutcome} align="right" />
       </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
         <Avatar team={slot.highTeam} size="sm" outcome={highOutcome} />
         <Score tally={tally} slot={slot} status={status} size="sm" />
         <Avatar team={slot.lowTeam} size="sm" outcome={lowOutcome} />
@@ -438,13 +438,15 @@ export function MatchupBoxScore({
 
       <StackedHeader slot={slot} tally={tally} status={status} winner={winner} />
 
-      <div className="hidden gap-4 px-4 py-5 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-center">
+      <div className="hidden gap-4 sm:grid sm:grid-cols-[1fr_auto_1fr] sm:items-stretch">
         <TeamHeading
           team={slot.highTeam}
           side="high"
           outcome={outcomeFor(winner, slot.highTeam)}
         />
-        <Score tally={tally} slot={slot} status={status} size="lg" />
+        <div className="self-center py-5">
+          <Score tally={tally} slot={slot} status={status} size="lg" />
+        </div>
         <TeamHeading
           team={slot.lowTeam}
           side="low"
