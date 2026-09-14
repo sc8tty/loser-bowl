@@ -570,27 +570,23 @@ up (`sed 's/\\\$/$/g'`).
 - Bcrypt hashes in `.env.local` get mangled by Next.js's `$`-expansion — must backslash-escape
   `$` in `ADMIN_PASSWORD_HASH` locally; Vercel's own env storage needs the raw unescaped hash.
 
-## Next session — RESUME HERE (stopped 2026-09-14 ~10:45 AM PDT for a Fott Studio restart)
-The API sync (Issue 4B) is mid-build and safe to resume on either machine. State on `main`:
-- **Done, committed, all green (218 tests):** `src/lib/sync/yahooSource.ts` + tests (which
-  weeks / no-games skip); `parseStatsRow` moved to `src/lib/stats/` with a shim; team keys
-  backfilled; fixtures recorded; home page current-round fix live.
-- **NOT done:** `src/lib/yahoo/client.ts`. A Codex run was building it and was killed by the
-  restart before writing anything. **Re-run it** from the saved spec:
-  `codex exec -m gpt-5.5 -s workspace-write --skip-git-repo-check "$(cat docs/specs/yahoo-client-codex-spec.md)"`
-  (background it from the Bash tool; watch by file mtime, not the output file).
-- **Then, in order:** (1) review the client — the contract that matters is that every
-  `stats` object passes `parseStatsRow` unchanged, and the empty-string week-25 fixture
-  yields zeros/"-"; (2) wire it: in `src/lib/sync/lock.ts` `defaultSyncSource`, call
-  `syncYahooStats({ now: () => now, fetchWeek: fetchLeagueWeekStats })` **before**
-  `processSeedLock`/`processMatchups`, include its result in `detail`, OR its `wroteData`
-  into the return, and on a Yahoo throw still run the housekeeping then rethrow; (3) unit
-  test that ordering in `engine.test.ts`'s style; (4) `LEAGUE_KEY=469.l.16468` into Vercel
-  Production (not secret; try `vercel env add`, classifier may bounce it to Scott); (5)
-  deploy, then trigger a sync from /admin and watch `sync_runs` + the Semifinals cards —
-  that live tick is the verification Codex structurally cannot do.
-- Nothing is wired into production yet, so the site's behaviour is unchanged until step 2
-  deploys. Manual CSV import still works as the fallback.
+## Next session
+**The Yahoo API sync is live (2026-09-14, `4db64d6` + `a4ca5c7`).** The site syncs itself
+on the visit trigger; manual CSV import remains the fallback and still works. What to know:
+- **Watch the first few production ticks** in `/admin` → sync runs. Expect `detail.yahoo`
+  with one entry per started bowl week; `written` > 0 only when Yahoo's numbers moved.
+  Week 25 shows `skippedNoGames: true` until Round 2's first pitch, then starts writing.
+- **Round 1 is provisional; Round 2 (Week 25) started 2026-09-14.** No manual pulls needed
+  from here unless the sync errors — a `status=error` run with backoff shows in `/admin`.
+- The verification of record: local run `sync_runs #307` through the real visit trigger
+  against live Yahoo + production Neon — Week 24 left all 8 bowl teams **unchanged** (the
+  collection-endpoint parse matched the per-team import byte for byte) and wrote the 8
+  non-bowl teams; Week 25 skipped. Production redeployed with the same code.
+- **CI was red for three pushes today (`0167372`→`4db64d6`) and I didn't check after the
+  first two.** Cause was mine: the calendar-driven featured round made the e2e depend on the
+  real date, and a "pending" badge assertion that only held while the Semifinals were compact
+  cards. Fixed in `a4ca5c7` (fixture now pins the page clock via `getE2eNow`). The rule
+  stands: `gh run list --branch main` after every push.
 
 ## Next session (older notes)
 - Continue the weekly manual CSV cadence (see "Manual mode" above) through all three playoff
