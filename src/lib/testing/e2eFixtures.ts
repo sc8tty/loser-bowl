@@ -483,6 +483,21 @@ function getFixtureSet(): FixtureSet {
   return fixtureCache;
 }
 
+/**
+ * The clock the fixture scenario was authored against. Pages pass this as
+ * `now` in e2e mode so anything date-driven (which round is featured, the
+ * "Updated" stamp) renders the same on any day CI happens to run.
+ */
+export function getE2eNow(
+  scenarioHeader: string | null | undefined,
+): Date | null {
+  if (!isE2eTestModeActive()) {
+    return null;
+  }
+
+  return phaseNow(normalizeScenario(scenarioHeader));
+}
+
 export function getE2eLeagueData(
   scenarioHeader: string | null | undefined,
 ): ReadyLeagueData | null {

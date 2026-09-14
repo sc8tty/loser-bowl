@@ -58,7 +58,11 @@ test("bracket phase renders mixed matchup states and TBD slots", async ({ page }
   await expect(visibleText(page, "final")).toBeVisible();
   await expect(visibleText(page, "provisional")).toBeVisible();
   await expect(visibleText(page, "under review")).toBeVisible();
-  await expect(visibleText(page, "pending")).toBeVisible();
+  // A pending matchup in the featured (box-score) round carries no status
+  // badge by design; its undecided state shows as the TBD-slot explainer.
+  await expect(
+    page.getByText("Teams are set once the previous round settles.").first(),
+  ).toBeVisible();
   await expect(visibleText(page, "TBD")).toBeVisible();
   await expect(page.getByText("Commissioner review in progress")).toBeVisible();
 });
