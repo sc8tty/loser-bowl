@@ -455,8 +455,12 @@ Coast innings and were never re-pulled to final. SLUMP BUSTERS was short exactly
 8.1-IP, 12-K game (the 9/9 evening game). The next-morning pulls (9/10–9/13) were complete.
 **If scraping is ever used again: pull the day only the following morning.** Week 24 was
 re-imported from `data/stats/week24-2026-09-13-yahoo-api.csv` (Yahoo-authoritative) and the
-engine recomputed — **all four Round 1 winners held**; only margins moved (r1m1 11-3-1,
-r1m2 8-5-2, r1m3 9-6-0, r1m4 11-3-1).
+engine recomputed — **all four Round 1 winners held**; only margins moved (r1m1 Furries
+9-6-0, r1m2 Eat The Rich 8-5-2, r1m3 Sheatriptease 8-5-2, r1m4 Me So Hoerner 11-3-1).
+*Correction:* the margins first written here were read between the import and the engine's
+next housekeeping tick, before it had recomputed. The import script does NOT run the
+engine; a settled matchup's `computedTally` only refreshes on the next sync tick. Query
+after a tick, not after an import.
 
 **And it validated the roll-up math:** for the five teams whose games *were* fully captured,
 the innings-weighted ERA/WHIP/K/9 matched Yahoo's exact figures to the decimal (e.g. Trout's

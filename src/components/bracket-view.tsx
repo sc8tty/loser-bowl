@@ -180,7 +180,17 @@ export function BracketView({
   const slots = buildBracketSlots(matchups);
   const hasReview = slots.some((slot) => slot.status === "under_review");
   const round = currentRound(now);
-  const otherRounds = ([1, 2, 3] as const).filter((candidate) => candidate !== round);
+  const upcomingRounds = ([1, 2, 3] as const).filter((candidate) => candidate > round);
+  const previousRounds = ([1, 2, 3] as const)
+    .filter((candidate) => candidate < round)
+    .reverse();
+
+  const boxScores = (target: 1 | 2 | 3) =>
+    slots
+      .filter((slot) => slot.round === target)
+      .map((slot) => (
+        <MatchupBoxScore key={slot.id} slot={slot} statCategories={statCategories} />
+      ));
 
   return (
     <section id={id} className="border-b border-stone-300 bg-stone-100">
@@ -198,32 +208,27 @@ export function BracketView({
         ) : null}
 
         <RoundHeading round={round} />
-        <div className="grid gap-5">
-          {slots
-            .filter((slot) => slot.round === round)
-            .map((slot) => (
-              <MatchupBoxScore
-                key={slot.id}
-                slot={slot}
-                statCategories={statCategories}
-              />
-            ))}
-        </div>
+        <div className="grid gap-5">{boxScores(round)}</div>
 
-        <div className="mt-10 grid gap-8 lg:grid-cols-2">
-          {otherRounds.map((other) => (
-            <div key={other} className="min-w-0">
-              <RoundHeading round={other} />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                {slots
-                  .filter((slot) => slot.round === other)
-                  .map((slot) => (
-                    <MatchupCard key={slot.id} slot={slot} />
-                  ))}
-              </div>
+        {upcomingRounds.map((upcoming) => (
+          <div key={upcoming} className="mt-10">
+            <RoundHeading round={upcoming} />
+            <div className="grid gap-3">
+              {slots
+                .filter((slot) => slot.round === upcoming)
+                .map((slot) => (
+                  <MatchupCard key={slot.id} slot={slot} />
+                ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
+
+        {previousRounds.map((previous) => (
+          <div key={previous} className="mt-10">
+            <RoundHeading round={previous} />
+            <div className="grid gap-5">{boxScores(previous)}</div>
+          </div>
+        ))}
       </div>
     </section>
   );
