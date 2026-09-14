@@ -321,9 +321,16 @@ the week's running total has to be built by hand, one day at a time:
    the cumulative total covers, e.g. a file dated `2026-09-08` after Tuesday's games contains
    Monday+Tuesday counting stats and Tuesday's ratios. This file **is** the audit trail (it's
    committed to git); there's no separate per-day ledger, so don't skip committing it.
-7. Once a round's last calendar day (Sunday) is pulled, "Last 7 Days" (`stat2=L7`) on that
-   final day gives Yahoo's own exact cumulative total for the whole week in one query — use
-   it as a cross-check against the hand-summed total before that round's final import.
+7. ~~"Last 7 Days" as a week-end cross-check~~ — **this does not work; tested 2026-09-14
+   closing out Week 24.** The `stat2=L7` view is per-player only: it has **no "Starting
+   Lineup Totals" footer** (`#statTable0` has no `tfoot` at all), and it lists **bench (BN)
+   players**, who don't score. There is no scored-lineup weekly total anywhere on Yahoo to
+   compare against, and summing the per-player rows yourself is wrong because who started
+   changes day to day. The day-by-day ledger is therefore the **only** source of truth for
+   the week. The real safeguard is the one already in the loop: each day file is transcribed
+   from a single-day view that *does* have the footer, and `roll-up-week` does the summing
+   with tested math. Re-pull a day if a number looks off; don't look for a Yahoo total to
+   confirm the week.
 
 **Arithmetic is the actual risk here, not the scraping** — this decides a $50 pot. Add
 counting stats with a calculator or a script, not mental math, and sanity-check each team's
