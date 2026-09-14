@@ -469,6 +469,40 @@ imports, which Next resolves but plain `node --experimental-strip-types` cannot 
 gotcha already noted for `liveTally.ts`). Now `.ts`-suffixed so the library is usable from
 `scripts/`, which the sync will need.
 
+### The API sync (Issue 4B, building 2026-09-14) — design decisions
+The seam already existed: `runSync` takes a `source()` and `defaultSyncSource` in
+`src/lib/sync/lock.ts` runs the engine's own housekeeping (`processSeedLock`,
+`processMatchups`). The Yahoo fetch is **added ahead of** that pipeline, not swapped in for
+it, so the engine computes on fresh stats every tick. Pieces:
+- `src/lib/yahoo/client.ts` (Codex, from a spec with the two recorded fixtures as oracle):
+  one call, `/league/<key>/teams/stats;type=week;week=N`, all 16 teams → the importer's exact
+  CSV-cell format, so it goes through the same `parseStatsRow` as manual mode.
+- `src/lib/sync/yahooSource.ts`: which weeks, mapping, diff, write. Decisions worth knowing:
+  - **All 16 teams, not just the bowl 8.** The sync must not depend on bracket state —
+    "who's in" is provisional through each correction window, and a commissioner override
+    after a few Week-N syncs would leave the newly-advanced team with no stat lines. One
+    call returns all 16 anyway, so it costs nothing.
+  - **Every bowl week that has started, not just the current one** (`bowlWeeksToSync`).
+    Closed weeks stay in the set so a late Yahoo stat correction still lands while the round
+    is provisional. At most 3 calls per tick.
+  - **Diff before write.** Only rows whose stats changed are upserted, and `wroteData` is
+    true only if something was. This is what keeps the site's "Updated" stamp honest — it
+    was previously fixed to mean "data moved", and an unconditional 16-row write every 30
+    minutes would have silently broken that again.
+  - **Skip a week entirely while Yahoo reports no games yet** (`isNoGamesRow`: every stat
+    empty → client normalises to zeros/"-"). Writing that row would replace "No stats
+    imported for Week N yet" with a 0-0-15 tally. First pitch flips it.
+  - Team mapping is `teams.yahoo_team_key` (backfilled 2026-09-14 by exact name from the
+    recorded response; `scripts/backfill-yahoo-team-keys.ts`, idempotent). Unmapped keys
+    are reported, never fatal.
+  - On a Yahoo failure the source still runs the engine housekeeping, then rethrows, so the
+    run is recorded as an error and backs off, but a settlement whose window closed during
+    an outage isn't delayed by it.
+- `parseStatsRow` moved from `scripts/lib/` to `src/lib/stats/` (it has no node-only deps)
+  so the in-app sync and the CSV importer share one validator; `scripts/lib/stat-rows.ts`
+  is a re-export shim.
+- `LEAGUE_KEY=469.l.16468` must be in Vercel Production before this deploys.
+
 ### (Historical) The API returned 403 from 2026-09-09 to 2026-09-14
 Every Fantasy API endpoint returns **403 "This application is not authorized to perform this
 action."** — including `/game/mlb`, which needs no league at all, so it is a blanket
@@ -536,7 +570,29 @@ up (`sed 's/\\\$/$/g'`).
 - Bcrypt hashes in `.env.local` get mangled by Next.js's `$`-expansion — must backslash-escape
   `$` in `ADMIN_PASSWORD_HASH` locally; Vercel's own env storage needs the raw unescaped hash.
 
-## Next session
+## Next session — RESUME HERE (stopped 2026-09-14 ~10:45 AM PDT for a Fott Studio restart)
+The API sync (Issue 4B) is mid-build and safe to resume on either machine. State on `main`:
+- **Done, committed, all green (218 tests):** `src/lib/sync/yahooSource.ts` + tests (which
+  weeks / no-games skip); `parseStatsRow` moved to `src/lib/stats/` with a shim; team keys
+  backfilled; fixtures recorded; home page current-round fix live.
+- **NOT done:** `src/lib/yahoo/client.ts`. A Codex run was building it and was killed by the
+  restart before writing anything. **Re-run it** from the saved spec:
+  `codex exec -m gpt-5.5 -s workspace-write --skip-git-repo-check "$(cat docs/specs/yahoo-client-codex-spec.md)"`
+  (background it from the Bash tool; watch by file mtime, not the output file).
+- **Then, in order:** (1) review the client — the contract that matters is that every
+  `stats` object passes `parseStatsRow` unchanged, and the empty-string week-25 fixture
+  yields zeros/"-"; (2) wire it: in `src/lib/sync/lock.ts` `defaultSyncSource`, call
+  `syncYahooStats({ now: () => now, fetchWeek: fetchLeagueWeekStats })` **before**
+  `processSeedLock`/`processMatchups`, include its result in `detail`, OR its `wroteData`
+  into the return, and on a Yahoo throw still run the housekeeping then rethrow; (3) unit
+  test that ordering in `engine.test.ts`'s style; (4) `LEAGUE_KEY=469.l.16468` into Vercel
+  Production (not secret; try `vercel env add`, classifier may bounce it to Scott); (5)
+  deploy, then trigger a sync from /admin and watch `sync_runs` + the Semifinals cards —
+  that live tick is the verification Codex structurally cannot do.
+- Nothing is wired into production yet, so the site's behaviour is unchanged until step 2
+  deploys. Manual CSV import still works as the fallback.
+
+## Next session (older notes)
 - Continue the weekly manual CSV cadence (see "Manual mode" above) through all three playoff
   rounds (Weeks 24, 25, 26 — through Sep 27).
 - Watch for a Yahoo reply on either thread; if access ever lands, Issue 4B (real sync) and

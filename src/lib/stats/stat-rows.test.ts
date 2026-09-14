@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { SEEDED_STAT_CATEGORIES } from "../../src/config/categories.seed";
+import { SEEDED_STAT_CATEGORIES } from "../../config/categories.seed";
 import { parseStatsRow } from "./stat-rows";
 
 const KNOWN = new Set(["moonshot-accountants"]);
