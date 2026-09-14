@@ -7,6 +7,12 @@ import { syncRuns, syncState } from "@/db/schema";
 import type { SyncDeps, SyncTrigger } from "./engine";
 import { processMatchups } from "./matchupCompute";
 import { processSeedLock } from "./seedLock";
+import { fetchLeagueWeekStats } from "@/lib/yahoo/client";
+import {
+  type FetchLeagueWeekStats,
+  syncYahooStats,
+  type YahooSyncResult,
+} from "./yahooSource";
 
 export const LOCK_TTL_MS = 2 * 60 * 1000;
 
@@ -115,19 +121,46 @@ export async function noopSource(): Promise<Record<string, unknown>> {
   };
 }
 
-export async function defaultSyncSource(): Promise<Record<string, unknown>> {
-  const now = new Date();
-  const seedLock = await processSeedLock({ now: () => now });
-  const matchups = await processMatchups({ now: () => now });
+/**
+ * Yahoo first, so the engine's housekeeping computes on fresh stat lines.
+ * A Yahoo failure is still surfaced as an error run (backoff applies), but
+ * only after the housekeeping has run: a settlement whose correction window
+ * closed during a Yahoo outage must not wait for Yahoo to come back.
+ */
+export function createDefaultSyncSource(deps: {
+  fetchWeek: FetchLeagueWeekStats;
+}): () => Promise<Record<string, unknown>> {
+  return async () => {
+    const now = new Date();
+    let yahoo: YahooSyncResult | null = null;
+    let yahooError: unknown = null;
 
-  return {
-    source: "default",
-    note: "sync shell — real Yahoo source lands with Issue 4B",
-    seedLock,
-    matchups,
-    wroteData: seedLock.wroteData || matchups.wroteData,
+    try {
+      yahoo = await syncYahooStats({ now: () => now, fetchWeek: deps.fetchWeek });
+    } catch (error) {
+      yahooError = error;
+    }
+
+    const seedLock = await processSeedLock({ now: () => now });
+    const matchups = await processMatchups({ now: () => now });
+
+    if (yahooError !== null) {
+      throw yahooError;
+    }
+
+    return {
+      source: "yahoo",
+      yahoo,
+      seedLock,
+      matchups,
+      wroteData: (yahoo?.wroteData ?? false) || seedLock.wroteData || matchups.wroteData,
+    };
   };
 }
+
+export const defaultSyncSource = createDefaultSyncSource({
+  fetchWeek: fetchLeagueWeekStats,
+});
 
 export function dbSyncDeps(overrides: Partial<SyncDeps> = {}): SyncDeps {
   return {
