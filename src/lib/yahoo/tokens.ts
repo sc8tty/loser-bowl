@@ -2,7 +2,7 @@ import { eq, sql } from "drizzle-orm";
 
 import { getDb } from "@/db";
 import { oauthTokens } from "@/db/schema";
-import { refreshAccessToken } from "./oauth";
+import { refreshAccessToken } from "./oauth.ts";
 
 const REFRESH_SKEW_MS = 60 * 1000;
 

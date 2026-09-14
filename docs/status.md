@@ -425,7 +425,51 @@ env vars — they're snapshotted at deploy time).
   and its refresh response may omit `refresh_token` — keep the stored one when it does, or
   reauth silently breaks weeks later. Both are covered by tests in `src/lib/yahoo/`.
 
-### STILL BLOCKED: the API returns 403 — OAuth working is NOT the same as API access
+### API ACCESS IS LIVE (2026-09-14) — and it changes the whole data model
+Yahoo confirmed by email; verified with the `/game/mlb` probe below (HTTP 200) *before*
+believing it. First facts, all confirmed against live responses:
+- **MLB 2026 `game_key` is `469`** (the `458` in earlier notes was a guess). League key is
+  **`469.l.16468`** — now in `.env.local` as `LEAGUE_KEY`; still needs adding to Vercel
+  when the sync ships. Discovered via `/users;use_login=1/games;game_keys=mlb/leagues`.
+- **Team keys** are `469.l.16468.t.<n>` using the same team numbers as the web URLs
+  (12 SLUMP BUSTERS, 3 Eat The Rich, 15 Trout's Honor, 14 Me So Hoerner, 9 You Hang'em,
+  4 Sheatriptease, 13 Springfield, 2 Baseball Furries).
+- **Week totals in one call:** `/team/<team_key>/stats;type=week;week=<N>?format=json`.
+  Also `;type=date;date=YYYY-MM-DD` for a single day. Response: `fantasy_content.team[1]
+  .team_stats.stats[]`, each `{stat: {stat_id, value}}`.
+- **Stat-id map** (the league's 15 categories + 2 display stats; identical set to the web
+  footer): `7`=R `10`=2B `11`=3B `12`=HR `13`=RBI `16`=SB `3`=AVG `55`=OPS `60`=H/AB
+  `50`=IP `28`=W `39`=BB `42`=K `26`=ERA `27`=WHIP `57`=K/9 `90`=NSVH. Raw components
+  (ER, hits allowed, batter BB/HBP/SF) are **not** exposed here either — but it no longer
+  matters, because:
+- **The API returns Yahoo's own exact cumulative ratios for the week**, OPS included. The
+  entire per-day ledger + innings-weighting + at-bat-weighting apparatus existed only because
+  the web UI has no week view. **For the API path it is obsolete**: one `type=week` call per
+  team gives the exact week-to-date line, mid-week or closed. Keep the ledger code as the
+  fallback if the API ever goes away; stop using it as the primary path.
+
+**What the API revealed about Week 24 — read this before trusting any evening scrape:**
+Yahoo's Week 24 totals were *higher* than the ledger roll-up for several teams. Cause: the
+three same-evening scrapes (9/7 10:01 PM, 9/8 10:38 PM, 9/9 6:45 PM) all missed late West
+Coast innings and were never re-pulled to final. SLUMP BUSTERS was short exactly one
+8.1-IP, 12-K game (the 9/9 evening game). The next-morning pulls (9/10–9/13) were complete.
+**If scraping is ever used again: pull the day only the following morning.** Week 24 was
+re-imported from `data/stats/week24-2026-09-13-yahoo-api.csv` (Yahoo-authoritative) and the
+engine recomputed — **all four Round 1 winners held**; only margins moved (r1m1 11-3-1,
+r1m2 8-5-2, r1m3 9-6-0, r1m4 11-3-1).
+
+**And it validated the roll-up math:** for the five teams whose games *were* fully captured,
+the innings-weighted ERA/WHIP/K/9 matched Yahoo's exact figures to the decimal (e.g. Trout's
+Honor 5.87/1.30/8.51, Springfield 2.57/1.20/7.46). The derivation was right; the capture
+timing was the bug. The AB-weighted OPS approximation, by contrast, was measurably off even
+with identical counting stats (Springfield .822 vs exact .815) — as predicted, and now moot.
+
+Also fixed this session: `src/lib/yahoo/oauth.ts` and `tokens.ts` used extensionless relative
+imports, which Next resolves but plain `node --experimental-strip-types` cannot (the same
+gotcha already noted for `liveTally.ts`). Now `.ts`-suffixed so the library is usable from
+`scripts/`, which the sync will need.
+
+### (Historical) The API returned 403 from 2026-09-09 to 2026-09-14
 Every Fantasy API endpoint returns **403 "This application is not authorized to perform this
 action."** — including `/game/mlb`, which needs no league at all, so it is a blanket
 application-level rejection, not a scope, endpoint, or token fault. Verified 2026-09-09
