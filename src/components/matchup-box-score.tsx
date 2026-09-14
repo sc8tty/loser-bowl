@@ -181,14 +181,17 @@ const STAMP_INK_MASK =
   ) +
   "\")";
 
-function LoserStamp({ size }: { size: "sm" | "lg" }) {
+/** `at` is the half of the badge the stamp lands on — always the half nearest the score. */
+function LoserStamp({ size, at }: { size: "sm" | "lg"; at: "left" | "right" }) {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute inset-y-0 right-0 z-10 flex w-1/2 items-center justify-center"
+      className={`pointer-events-none absolute inset-y-0 z-10 flex w-1/2 items-center justify-center ${
+        at === "right" ? "right-0" : "left-0"
+      }`}
     >
       <span
-        className={`-rotate-12 select-none border-double border-rose-700 px-2 font-black uppercase leading-none tracking-[0.15em] text-rose-700 opacity-80 mix-blend-multiply ${
+        className={`-rotate-[22deg] select-none border-double border-rose-700 px-2 font-black uppercase leading-none tracking-[0.15em] text-rose-700 opacity-80 mix-blend-multiply ${
           size === "lg" ? "border-[6px] text-3xl py-0.5" : "border-4 text-xl py-px"
         }`}
         style={{ maskImage: STAMP_INK_MASK, WebkitMaskImage: STAMP_INK_MASK }}
@@ -217,7 +220,9 @@ function TeamHeading({
         alignRight ? "flex-row-reverse text-right" : ""
       } ${tint}`}
     >
-      {outcome === "loser" ? <LoserStamp size="lg" /> : null}
+      {outcome === "loser" ? (
+        <LoserStamp size="lg" at={alignRight ? "left" : "right"} />
+      ) : null}
       <Avatar team={team} size="lg" outcome={outcome} />
       <div className="min-w-0">
         {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
@@ -286,7 +291,9 @@ function StackedSide({
         align === "right" ? "text-right" : "text-left"
       } ${tint}`}
     >
-      {outcome === "loser" ? <LoserStamp size="sm" /> : null}
+      {outcome === "loser" ? (
+        <LoserStamp size="sm" at={align === "right" ? "left" : "right"} />
+      ) : null}
       {outcome === null ? null : <OutcomeLabel outcome={outcome} />}
       <span className="block truncate text-base font-black text-stone-950">
         {team?.name ?? "TBD"}
