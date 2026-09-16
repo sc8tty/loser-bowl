@@ -100,6 +100,40 @@ function parseInteger(value: unknown, label: string): number {
   return parsed;
 }
 
+const KNOWN_STAT_IDS: ReadonlySet<string> = new Set([
+  ...Object.keys(COUNTING_STAT_ID_TO_SLUG),
+  ...Object.keys(RATIO_STAT_ID_TO_SLUG),
+  HITS_AT_BATS_STAT_ID,
+  INNINGS_PITCHED_STAT_ID,
+  AVG_STAT_ID,
+]);
+
+/**
+ * Yahoo types stat values by the week's state, not the stat: a completed
+ * week sends every value as a string, an in-progress week sends counting
+ * stats as JSON numbers, and a week with no games yet sends "". Accepting
+ * only strings silently zeroed every count mid-week (2026-09-15). A known
+ * stat carrying anything else is a parse failure and must be loud - a quiet
+ * skip here becomes a wrong number in a matchup that money rides on.
+ */
+function statValue(raw: unknown, statId: string): string | undefined {
+  if (typeof raw === "string") {
+    return raw;
+  }
+
+  if (typeof raw === "number" && Number.isFinite(raw)) {
+    return String(raw);
+  }
+
+  if (KNOWN_STAT_IDS.has(statId)) {
+    throw new Error(
+      `Yahoo league stats response had an unusable value for stat ${statId}: ${typeof raw}.`,
+    );
+  }
+
+  return undefined;
+}
+
 function defaultStats(): Record<string, string> {
   return {
     r: "0",
@@ -199,9 +233,14 @@ function parseTeamStats(teamEntry: unknown): YahooTeamWeekStats {
     const statWrapper = requiredRecord(entry, "stat entry");
     const stat = requiredRecord(statWrapper.stat, "stat");
     const statId = stringField(stat.stat_id);
-    const value = typeof stat.value === "string" ? stat.value : undefined;
 
-    if (statId === undefined || value === undefined) {
+    if (statId === undefined) {
+      continue;
+    }
+
+    const value = statValue(stat.value, statId);
+
+    if (value === undefined) {
       continue;
     }
 

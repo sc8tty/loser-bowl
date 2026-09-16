@@ -4,6 +4,7 @@ import { SEEDED_STAT_CATEGORIES } from "../../config/categories.seed.ts";
 import { parseStatsRow } from "../stats/stat-rows.ts";
 import week24Fixture from "./__fixtures__/league-teams-stats-week24.json";
 import week25EmptyFixture from "./__fixtures__/league-teams-stats-week25-empty.json";
+import week25InProgressFixture from "./__fixtures__/league-teams-stats-week25-inprogress.json";
 
 const yahooState = vi.hoisted(() => ({
   getValidAccessToken: vi.fn<() => Promise<string>>(),
@@ -166,14 +167,68 @@ describe("fetchLeagueWeekStats", () => {
     }
   });
 
+  it("reads counting stats that Yahoo sends as JSON numbers mid-week", async () => {
+    // Regression: a completed week arrives as strings, an in-progress week
+    // sends every counting stat as a number. Only accepting strings silently
+    // zeroed R/2B/3B/HR/RBI/SB/W/BB/K/NSVH for the whole Semifinals (2026-09-15).
+    stubJsonResponse(week25InProgressFixture);
+
+    const teams = await fetchLeagueWeekStats(25);
+    const eatTheRich = findTeam(teams, "469.l.16468.t.3");
+
+    expect(eatTheRich.stats).toMatchObject({
+      r: "6",
+      "2b": "2",
+      "3b": "0",
+      hr: "1",
+      rbi: "4",
+      sb: "2",
+      w: "1",
+      bb: "1",
+      k: "10",
+      nsvh: "0",
+      at_bats: "41",
+      batting_hits: "12",
+      innings_pitched: "7.1",
+      ops: ".846",
+      era: "0.00",
+      whip: "0.55",
+      k9: "12.27",
+    });
+
+    for (const team of teams) {
+      expect(team.stats).not.toEqual(EMPTY_STATS);
+    }
+  });
+
+  it("throws when a known stat carries an unusable value instead of zeroing it", async () => {
+    type StatEntry = { stat: { stat_id: string; value: unknown } };
+    const poisoned = structuredClone(week24Fixture) as unknown as {
+      fantasy_content: {
+        league: [unknown, { teams: Record<string, { team: [unknown, { team_stats: { stats: StatEntry[] } }] }> }];
+      };
+    };
+    const stats = poisoned.fantasy_content.league[1].teams["0"].team[1].team_stats.stats;
+    const runs = stats.find((entry) => entry.stat.stat_id === "7");
+    if (runs === undefined) throw new Error("fixture has no stat 7");
+    runs.stat.value = null;
+    stubJsonResponse(poisoned);
+
+    await expect(fetchLeagueWeekStats(24)).rejects.toThrow(/unusable value for stat 7/);
+  });
+
   it("emits fixture rows accepted by the stats importer parser", async () => {
     stubJsonResponse(week24Fixture);
     const week24Teams = await fetchLeagueWeekStats(24);
 
     stubJsonResponse(week25EmptyFixture);
+    const week25EmptyTeams = await fetchLeagueWeekStats(25);
+
+    stubJsonResponse(week25InProgressFixture);
     const week25Teams = await fetchLeagueWeekStats(25);
 
     expectRowsAcceptedByImporter(week24Teams);
+    expectRowsAcceptedByImporter(week25EmptyTeams);
     expectRowsAcceptedByImporter(week25Teams);
   });
 

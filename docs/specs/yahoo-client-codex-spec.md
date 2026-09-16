@@ -37,6 +37,14 @@ fantasy_content.league[1].teams          // object, NOT array
 ```
 Iterate `0 .. count-1`. Do NOT assume the object's own key order.
 
+### CORRECTION (2026-09-15): stat `value` is NOT always a string
+This spec originally said values are strings. Yahoo types them by the WEEK'S STATE: a
+completed week sends every value as a string; an in-progress week sends the counting stats
+as JSON **numbers** (`{"stat_id":"7","value":6}`) while ratios, H/AB and IP stay strings; a
+week with no games yet sends `""`. The first client accepted only strings and silently
+zeroed every count for the whole Semifinals. Accept string or finite number; a KNOWN stat id
+with anything else must THROW, not skip. Fixture: `league-teams-stats-week25-inprogress.json`.
+
 ### Stat-id → slug map (the league's categories; these are all Yahoo returns)
 | stat_id | slug           | notes                                            |
 |---------|----------------|--------------------------------------------------|
