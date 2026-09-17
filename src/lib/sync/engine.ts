@@ -34,6 +34,22 @@ export type SyncOutcome =
   | { ran: true; status: "success" }
   | { ran: true; status: "error"; error: string };
 
+/**
+ * Backstop for what gets persisted to `sync_runs.error` and returned to the
+ * caller: a DrizzleQueryError's message is `Failed query: <sql>\nparams: <bound
+ * values>`, and bound values can be secrets (the Yahoo tokens in tokens.ts).
+ * tokens.ts already wraps its own error; this catches any future writer that
+ * forgets to.
+ */
+export function sanitizeSyncError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const paramsAt = message.indexOf("params:");
+
+  return paramsAt === -1
+    ? message
+    : `${message.slice(0, paramsAt).trimEnd()} [params redacted]`;
+}
+
 export async function runSync(
   trigger: SyncTrigger,
   deps: SyncDeps,
@@ -70,7 +86,7 @@ export async function runSync(
     return { ran: true, status: "success" };
   } catch (error) {
     const finishedAt = now();
-    const message = error instanceof Error ? error.message : String(error);
+    const message = sanitizeSyncError(error);
     const failures = (await deps.consecutiveFailures()) + 1;
     const nextRetryAt = new Date(finishedAt.getTime() + backoffMs(failures));
 

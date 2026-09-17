@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { runSync, type SyncDeps } from "./engine";
+import { DrizzleQueryError } from "drizzle-orm/errors";
+
+import { runSync, sanitizeSyncError, type SyncDeps } from "./engine";
 import { BACKOFF_BASE_MS } from "./freshness";
 
 const NOW = new Date("2026-09-10T12:00:00Z");
@@ -101,6 +103,39 @@ describe("runSync", () => {
     expect(deps.releases[0].nextRetryAt?.getTime()).toBe(
       NOW.getTime() + BACKOFF_BASE_MS * 4,
     );
+  });
+
+  it("strips bound params from a Drizzle error before recording it", async () => {
+    // Real class, real message shape: `Failed query: <sql>\nparams: <values>`.
+    // The values are whatever the failing statement bound — for the token
+    // upsert that is the Yahoo access and refresh tokens.
+    const driverError = new DrizzleQueryError(
+      "insert into oauth_tokens (...) values ($1, $2)",
+      ["secret-access", "secret-refresh"],
+      new Error("connection reset"),
+    );
+    expect(driverError.message).toContain("secret-access");
+
+    const deps = fakeDeps({
+      source: async () => {
+        throw driverError;
+      },
+    });
+
+    const outcome = await runSync("visit", deps);
+
+    expect(outcome.ran && outcome.status === "error").toBe(true);
+    const recorded = deps.runs[0].error ?? "";
+    expect(recorded).toBe(
+      "Failed query: insert into oauth_tokens (...) values ($1, $2) [params redacted]",
+    );
+    expect(recorded).not.toContain("secret-");
+    expect(JSON.stringify(outcome)).not.toContain("secret-");
+  });
+
+  it("leaves an ordinary error message alone", () => {
+    expect(sanitizeSyncError(new Error("yahoo exploded"))).toBe("yahoo exploded");
+    expect(sanitizeSyncError("plain string")).toBe("plain string");
   });
 
   it("exits silently without running the source when the lock is held", async () => {

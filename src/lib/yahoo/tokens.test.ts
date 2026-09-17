@@ -21,6 +21,7 @@ type StoredToken = {
 const dbState = vi.hoisted(() => ({
   rows: [] as TokenRow[],
   writes: [] as StoredToken[],
+  writeError: null as Error | null,
   getDb: vi.fn(),
 }));
 
@@ -28,7 +29,9 @@ vi.mock("@/db", () => ({
   getDb: dbState.getDb,
 }));
 
-import { getValidAccessToken } from "./tokens";
+import { DrizzleQueryError } from "drizzle-orm/errors";
+
+import { getValidAccessToken, storeTokens } from "./tokens";
 
 const NOW = new Date("2026-09-10T12:00:00.000Z");
 const ORIGINAL_ENV = {
@@ -49,6 +52,10 @@ function fakeDb() {
     insert: () => ({
       values: (value: StoredToken) => ({
         onConflictDoUpdate: async () => {
+          if (dbState.writeError !== null) {
+            throw dbState.writeError;
+          }
+
           dbState.writes.push(value);
           dbState.rows = [
             {
@@ -118,6 +125,7 @@ beforeEach(() => {
   setYahooEnv();
   dbState.rows = [];
   dbState.writes = [];
+  dbState.writeError = null;
   dbState.getDb.mockReset();
   dbState.getDb.mockReturnValue(fakeDb());
 });
@@ -130,7 +138,64 @@ afterEach(() => {
   restoreEnv("YAHOO_REDIRECT_URI");
 });
 
+/**
+ * The real Drizzle error class, so the test pins the actual message shape
+ * (`Failed query: <sql>\nparams: <bound values>`) rather than a guess at it.
+ */
+function driverFailure(...params: string[]): DrizzleQueryError {
+  return new DrizzleQueryError(
+    "insert into oauth_tokens (...) values ($1, $2, ...)",
+    params,
+    new Error("connection reset"),
+  );
+}
+
 describe("Yahoo token storage", () => {
+  it("never puts the tokens in the error when the upsert fails", async () => {
+    const driverError = driverFailure("secret-access", "secret-refresh");
+    dbState.writeError = driverError;
+
+    // Sanity check the premise: the raw driver error really does carry them.
+    expect(driverError.message).toContain("secret-access");
+    expect(driverError.message).toContain("secret-refresh");
+
+    const thrown = await storeTokens({
+      accessToken: "secret-access",
+      refreshToken: "secret-refresh",
+      expiresAt: new Date(NOW.getTime() + 3_600_000),
+      scope: "fspt-r",
+    }).then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(thrown).toBeInstanceOf(Error);
+    const error = thrown as Error;
+    expect(error.message).toBe("Failed to store Yahoo tokens");
+    expect(error.message).not.toContain("secret-access");
+    expect(error.message).not.toContain("secret-refresh");
+    expect(String(error)).not.toContain("secret-");
+    expect(error.cause).toBe(driverError);
+  });
+
+  it("never puts the tokens in the error when the refresh path's write fails", async () => {
+    dbState.rows = [row(new Date(NOW.getTime() - 1_000))];
+    stubRefreshResponse("new-refresh");
+    dbState.writeError = driverFailure("fresh-access", "new-refresh");
+
+    const thrown = await getValidAccessToken().then(
+      () => null,
+      (error: unknown) => error,
+    );
+
+    expect(thrown).toBeInstanceOf(Error);
+    const error = thrown as Error;
+    expect(error.message).toBe("Failed to store Yahoo tokens");
+    expect(error.message).not.toContain("fresh-access");
+    expect(error.message).not.toContain("new-refresh");
+    expect(dbState.writes).toHaveLength(0);
+  });
+
   it("keeps the old refresh token when Yahoo omits refresh_token", async () => {
     dbState.rows = [row(new Date(NOW.getTime() - 1_000))];
     const fetchMock = stubRefreshResponse();

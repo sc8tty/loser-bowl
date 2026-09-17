@@ -13,30 +13,42 @@ export type StoreTokensInput = {
   scope: string | null;
 };
 
+/**
+ * The only writer of the token row — the OAuth callback and the refresh path
+ * both come through here. A failed Drizzle query throws a DrizzleQueryError
+ * whose message embeds the bound params, which for this statement are the
+ * access and refresh tokens; that message would land in `sync_runs.error`
+ * (rendered on /admin) and the Vercel log. So the driver error is kept on
+ * `cause` for a debugger and never in the message.
+ */
 export async function storeTokens(tokens: StoreTokensInput): Promise<void> {
   const db = getDb();
   const updatedAt = new Date();
 
-  await db
-    .insert(oauthTokens)
-    .values({
-      id: 1,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: tokens.expiresAt,
-      scope: tokens.scope,
-      updatedAt,
-    })
-    .onConflictDoUpdate({
-      target: oauthTokens.id,
-      set: {
-        accessToken: sql`excluded.access_token`,
-        refreshToken: sql`excluded.refresh_token`,
-        expiresAt: sql`excluded.expires_at`,
-        scope: sql`excluded.scope`,
-        updatedAt: sql`excluded.updated_at`,
-      },
-    });
+  try {
+    await db
+      .insert(oauthTokens)
+      .values({
+        id: 1,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresAt: tokens.expiresAt,
+        scope: tokens.scope,
+        updatedAt,
+      })
+      .onConflictDoUpdate({
+        target: oauthTokens.id,
+        set: {
+          accessToken: sql`excluded.access_token`,
+          refreshToken: sql`excluded.refresh_token`,
+          expiresAt: sql`excluded.expires_at`,
+          scope: sql`excluded.scope`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  } catch (error) {
+    throw new Error("Failed to store Yahoo tokens", { cause: error });
+  }
 }
 
 export type YahooConnectionStatus =

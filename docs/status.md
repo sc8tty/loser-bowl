@@ -20,19 +20,21 @@
   on 9/14 and nobody looked (twice now).
 
 ## Known open items (in priority order)
-1. **Security (Low, verified):** a `DrizzleQueryError` message embeds bound params, so a DB
-   failure during the token upsert in `src/lib/yahoo/tokens.ts` would write the Yahoo
-   access + refresh tokens into `sync_runs.error` (rendered on `/admin`) and Vercel logs.
-   Doesn't cross a privilege boundary; hygiene. Fix: wrap both writes in `tokens.ts` and
-   rethrow `new Error("Failed to store Yahoo tokens", { cause })`; strip `params:` in
-   `runSync`'s recorded message as a backstop. Full report in the 9/15 session transcript.
-2. **The Codex fresh-context security review never completed** — the background run was
+1. **The Codex fresh-context security review never completed** — the background run was
    killed by a session boundary before writing output. Re-run it (spec was the adversarial
    brief: OAuth, sync, admin auth, validator, scripts; read-only sandbox; `gpt-5.5`).
-3. `scripts/backfill-yahoo-team-keys.ts` matches by exact team name; a renamed team could
+2. `scripts/backfill-yahoo-team-keys.ts` matches by exact team name; a renamed team could
    collide. Add a duplicate-name guard before it is ever re-run.
-4. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+3. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
+
+Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
+so a failed token upsert would have written the Yahoo access + refresh tokens into
+`sync_runs.error` and the Vercel log). `storeTokens` — the only writer, used by both the
+OAuth callback and the refresh path — now rethrows `Failed to store Yahoo tokens` with the
+driver error on `cause`; `sanitizeSyncError` in `engine.ts` strips `params:` from anything
+`runSync` records as a backstop. Tests use the real `DrizzleQueryError` class so they pin
+the actual message shape, and were checked to fail without the fix.
 
 ## Yahoo API facts that are NOT obvious and each cost a bug or a build cycle
 - **Stat `value` is typed by the week's state, not the stat.** Completed week → every value
