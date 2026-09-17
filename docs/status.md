@@ -23,9 +23,7 @@
 1. **The Codex fresh-context security review never completed** — the background run was
    killed by a session boundary before writing output. Re-run it (spec was the adversarial
    brief: OAuth, sync, admin auth, validator, scripts; read-only sandbox; `gpt-5.5`).
-2. `scripts/backfill-yahoo-team-keys.ts` matches by exact team name; a renamed team could
-   collide. Add a duplicate-name guard before it is ever re-run.
-3. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+2. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
 
 Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
@@ -35,6 +33,13 @@ OAuth callback and the refresh path — now rethrows `Failed to store Yahoo toke
 driver error on `cause`; `sanitizeSyncError` in `engine.ts` strips `params:` from anything
 `runSync` records as a backstop. Tests use the real `DrizzleQueryError` class so they pin
 the actual message shape, and were checked to fail without the fix.
+
+Closed 9/17: `scripts/backfill-yahoo-team-keys.ts` now plans every change, validates the
+whole plan, and only then writes — it previously wrote row by row and reported unmatched
+names afterwards. It refuses on a name Yahoo lists twice, a name the DB has twice, a key
+that would go to two DB teams, or a key another DB team already holds (the rename case),
+and on any unmatched name. Exercised in `--dry-run` against prod: the real week-24 fixture
+plans 0 of 16 changes; doctored fixtures for the duplicate and rename cases are refused.
 
 ## Yahoo API facts that are NOT obvious and each cost a bug or a build cycle
 - **Stat `value` is typed by the week's state, not the stat.** Completed week → every value
