@@ -103,3 +103,54 @@ Diff reviewed before deploy: read-time live tally (`src/lib/bracket/liveTally.ts
 - **Noted, not fixed:** five pre-existing `tsc` errors in `comparator.test.ts`
   (`display_name` on `WeekStatCategory`). Reviewer claimed they block `next build`; they
   don't (Turbopack and webpack builds both passed this session) — test-only noise.
+
+## 2026-09-17 — Adversarial security review (Codex `gpt-5.5`, fresh context, read-only sandbox)
+
+Brief: `docs/reviews/security-review-brief-2026-09-17.md`; raw output:
+`docs/reviews/security-review-2026-09-17-codex-raw.md`. Scope: OAuth, sync, admin auth,
+`parseStatsRow`, scripts, schema, deps. Codex reported **no P1s**, four P2s, one P3. Each was
+re-verified independently before anything was acted on (identify → false-positive check →
+only ≥8/10 survives). One thing the brief got wrong and was corrected in the saved file: it
+called the app driver `neon-http`; it is `neon-serverless` over WebSocket, so the
+`db.transaction()` calls in `matchupCompute.ts`/`seedLock.ts` are real.
+
+- **Acted on — the one real finding, and Codex couldn't see it (no network):** `npm audit`
+  showed `next@16.2.12` under GHSA-2xp9-vwfh-vxw4, a *critical* unauthenticated RCE in the
+  Image Optimization API via AVIF (libheif through sharp), affecting `>=16.0.0 <16.3.3`.
+  `/_next/image` is served by every Next app regardless of whether the code uses
+  `next/image` (prod answered it with a 400, i.e. it's on). Upgraded `next` +
+  `eslint-config-next` to 16.3.5; that also moves the bundled sharp/postcss out of their
+  advisory ranges. Remaining audit items are dev-only or inapplicable (`esbuild` under
+  `drizzle-kit`'s esm-loader, `@vitest/mocker`, `js-yaml` under eslint, `nanoid`'s
+  zero-size custom generator); `npm audit fix` crashed inside npm and changed nothing.
+- **P2 "public visits can run sync / consume backoff" — reframed, decision pending.** The
+  attacker part is a false positive: visitors cannot cause Yahoo failures, and backoff on real
+  failures is the desired behaviour whatever the trigger. But checking it exposed a real
+  inefficiency: `isStale` reads `sync_state.last_success`, which the Aug 1 P2-7 fix changed to
+  advance only when a sync *wrote* data. So once the numbers haven't moved for 30 min
+  (overnight, or once weeks are final) every page view schedules a full Yahoo pull — one call
+  per started bowl week — until something changes. Any anonymous visitor controls that
+  amplification. Proposed fix: `last_success` goes back to meaning "last successful sync"
+  (freshness clock), and the public "Updated" stamp uses only the data-writing `sync_runs`
+  query `trigger.ts` already runs (`lastUpdatedAt` drops the `latestOf(lastSuccess, …)`).
+  Not shipped mid-round without Scott's call — it changes sync cadence on a live bracket.
+- **P2 login throttle bypass via `X-Forwarded-For` — false positive on Vercel.** Vercel's
+  request-headers doc: it overwrites `X-Forwarded-For` and does "not forward external IPs …
+  to prevent IP spoofing"; a custom XFF needs an Enterprise trusted proxy. (The throttle being
+  in-memory per instance is a separate, already-known limit; bcrypt + a strong password is
+  the real defence.)
+- **P2 standings import can half-apply — true but moot.** `scripts/import-standings.ts` runs
+  16 UPDATEs over `neon-http` with no transaction. Ranks only feed the seed lock, which
+  settled at the bracket lock date; a mid-loop crash now changes nothing the bracket reads,
+  and re-running the import repairs it. Not fixing (states the system can't produce).
+- **P2 `_oneoff-cleanup-placeholder-teams.ts` is unguarded — true.** It deletes every
+  matchup, resets the seed lock, and clears every `final_seed`, with no dry-run and no
+  confirmation. Precondition is repo + `.env.local`, i.e. the operator; the risk is a
+  mis-tab-completed command, not an attacker. It ran once in August and has no further use.
+  Recommendation: `git rm` it (history keeps it). Scott's file, Scott's call.
+- **P3 `^\d+$` admits a 309-digit at-bats → `Infinity` → `"NaN"` AVG — true, unreachable.**
+  Source is Yahoo or the admin's own CSV. Noted only.
+- **Checked-sound list** from Codex matched my own reading: admin mutations behind
+  `requireAdminMutation` + Origin check, proxy matcher covers `/admin`, `/api/admin`,
+  `/api/sync`; cron GET needs `CRON_SECRET`; OAuth state via `timingSafeEqual`; status
+  queries never select token columns; today's token-message fix present.

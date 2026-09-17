@@ -20,10 +20,13 @@
   on 9/14 and nobody looked (twice now).
 
 ## Known open items (in priority order)
-1. **The Codex fresh-context security review never completed** — the background run was
-   killed by a session boundary before writing output. Re-run it (spec was the adversarial
-   brief: OAuth, sync, admin auth, validator, scripts; read-only sandbox; `gpt-5.5`).
-2. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+1. **Decide: visit-sync amplification.** `isStale` reads `sync_state.last_success`, which
+   only advances when a sync *writes* data (Aug 1 P2-7), so once nothing has changed for
+   30 min every page view schedules a full Yahoo pull until something does. Proposed fix and
+   reasoning in `docs/review-log.md` (2026-09-17). Not shipped without Scott's call.
+2. **Decide: delete `scripts/_oneoff-cleanup-placeholder-teams.ts`.** Unguarded, wipes
+   every matchup and seed; ran once in August. Recommendation is `git rm`.
+3. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
 
 Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
@@ -33,6 +36,12 @@ OAuth callback and the refresh path — now rethrows `Failed to store Yahoo toke
 driver error on `cause`; `sanitizeSyncError` in `engine.ts` strips `params:` from anything
 `runSync` records as a backstop. Tests use the real `DrizzleQueryError` class so they pin
 the actual message shape, and were checked to fail without the fix.
+
+Closed 9/17: the Codex security review ran to completion (brief + raw output in
+`docs/reviews/`, verified triage in `docs/review-log.md`). No P1s. The one thing acted on
+came from `npm audit`, which Codex can't run: `next@16.2.12` was under a critical
+unauthenticated-RCE advisory (GHSA-2xp9-vwfh-vxw4, Image Optimization API + AVIF); upgraded
+to **16.3.5**, full local CI set green including Playwright.
 
 Closed 9/17: `scripts/backfill-yahoo-team-keys.ts` now plans every change, validates the
 whole plan, and only then writes — it previously wrote row by row and reported unmatched

@@ -37,8 +37,9 @@ Skip `*.test.ts`, `e2e/`, `src/components/`, and styling.
    route, login throttling bypass, timing-safe comparisons, logout completeness.
 4. OAuth: state binding, redirect handling, code reuse, what `/oauth/done` trusts.
 5. Sync integrity: can `/api/sync` be triggered by anyone in a way that matters? Lock
-   race conditions; a partial write leaving the DB inconsistent (note the driver is
-   `neon-http`, which cannot do transactions — see if anything relies on one); the
+   race conditions; a partial write leaving the DB inconsistent (the driver is
+   `neon-serverless` over WebSocket — `src/db/index.ts` — so `db.transaction()` is real;
+   check that every multi-row write that needs one is inside one); the
    provisional → final 24-hour window; the `after()`-scheduled visit sync.
 6. `parseStatsRow`: type confusion (Yahoo sends stat values as strings, JSON numbers, or
    `""` depending on the week's state), NaN/Infinity, negative or absurd values, unknown
