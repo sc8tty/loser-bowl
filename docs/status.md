@@ -1,4 +1,57 @@
-# Status (as of 2026-09-07, late evening — second session, Fott Book)
+# Status (as of 2026-09-17 — Round 2 in progress, the site syncs itself)
+
+**Read this block first; everything below it is history, newest first.**
+
+## Where things stand
+- **The Yahoo API sync is live and self-healing** (`4db64d6`, `a4ca5c7`, `6f1ce8b`). A page
+  visit schedules a sync via `after()` when the data is >30 min old (bracket phase); the sync
+  pulls every started bowl week from Yahoo in one call per week, diffs, writes only changed
+  rows, then runs the engine's housekeeping. No manual pulls are needed. Manual CSV import
+  (`npm run import:stats`) and the per-day ledger + `roll-up-week` remain as the **fallback**.
+- **Round 1 is final** (24-hour correction window lapsed the night of 9/15): Furries 9-6-0,
+  Eat The Rich 8-5-2, Sheatriptease 8-5-2, Me So Hoerner 11-3-1. **Round 2 (Week 25, Sep
+  14–20)**: Eat The Rich vs Furries, Me So Hoerner vs Sheatriptease. **Final** Week 26.
+- **Home page**: current round as full box scores on top → upcoming Final as a full-width
+  card → previous rounds as full box scores. Decided matchups show full-bleed winner (green) /
+  loser (rose) identity panels with a rubber-stamped LOSER across the loser's inner half.
+  `currentRound()` is calendar-driven (`bracket-view.tsx`), not status-driven.
+- **CI** runs vitest, typecheck, lint, build, Playwright (actions on v7). 231 tests green.
+  **Check `gh run list --branch main` after every push** — it went red for three pushes
+  on 9/14 and nobody looked (twice now).
+
+## Known open items (in priority order)
+1. **Security (Low, verified):** a `DrizzleQueryError` message embeds bound params, so a DB
+   failure during the token upsert in `src/lib/yahoo/tokens.ts` would write the Yahoo
+   access + refresh tokens into `sync_runs.error` (rendered on `/admin`) and Vercel logs.
+   Doesn't cross a privilege boundary; hygiene. Fix: wrap both writes in `tokens.ts` and
+   rethrow `new Error("Failed to store Yahoo tokens", { cause })`; strip `params:` in
+   `runSync`'s recorded message as a backstop. Full report in the 9/15 session transcript.
+2. **The Codex fresh-context security review never completed** — the background run was
+   killed by a session boundary before writing output. Re-run it (spec was the adversarial
+   brief: OAuth, sync, admin auth, validator, scripts; read-only sandbox; `gpt-5.5`).
+3. `scripts/backfill-yahoo-team-keys.ts` matches by exact team name; a renamed team could
+   collide. Add a duplicate-name guard before it is ever re-run.
+4. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+   Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
+
+## Yahoo API facts that are NOT obvious and each cost a bug or a build cycle
+- **Stat `value` is typed by the week's state, not the stat.** Completed week → every value
+  a string; in-progress week → counting stats are JSON **numbers**, ratios/H/AB/IP strings;
+  no games yet → `""`. The first client accepted only strings and silently zeroed every
+  count for the Semifinals for ~9 hours (9/15). A KNOWN stat id with an unusable value now
+  throws. Three fixtures pin all three states (`src/lib/yahoo/__fixtures__/`).
+- `game_key` for MLB 2026 is **469** (league key `469.l.16468`); the `458` guess was wrong.
+- A rendered OAuth **consent screen does not mean the API is authorized** — probe
+  `/game/mlb` (403 = gated). Same-evening web scrapes miss West Coast games; the API
+  returns exact cumulative ratios, which is why the ledger's weighting is now fallback-only.
+- The import script does **not** run the engine; a settled matchup's `computedTally` only
+  refreshes on the next sync tick. Query after a tick, not after an import.
+- `sameSite=strict` cookies are withheld for the WHOLE redirect chain a cross-site page
+  started — hence the unguarded `/oauth/done` landing page.
+
+---
+
+# Status (as of 2026-09-07, late evening — second session, Fott Book) — HISTORY
 
 ## Live mid-week tallies are on the site — every stats import now updates the bracket
 The gap after the first 2026-09-07 session: the engine only computes a matchup once its
@@ -67,8 +120,9 @@ shows the absolute stamp ("34 min ago · Sep 7, 5:42 PM PDT").
 ### Codex CLI is installed on Fott Book
 `@openai/codex` installed globally this session (v0.153.4, already authenticated via the
 ChatGPT subscription). Used for a fresh-context review of this diff before deploy — see
-`docs/review-log.md` if findings were logged. Configured model in `~/.codex/config.toml`
-is `gpt-5.4`; override per run with `codex exec -m <model>`.
+`docs/review-log.md` if findings were logged. (Update 2026-09-14: a ChatGPT-subscription
+login rejects `gpt-5.4` with a 400 — always pass `-m gpt-5.5`; see the
+`codex-mcp-claude-code` skill. Builds use `-s workspace-write`, reviews `-s read-only`.)
 
 ### The manual-mode loop is now: scrape → CSV → import → site is current
 No extra step. After `npm run import:stats -- path/to.csv` succeeds, the live site
@@ -575,22 +629,8 @@ up (`sed 's/\\\$/$/g'`).
   `$` in `ADMIN_PASSWORD_HASH` locally; Vercel's own env storage needs the raw unescaped hash.
 
 ## Next session
-**The Yahoo API sync is live (2026-09-14, `4db64d6` + `a4ca5c7`).** The site syncs itself
-on the visit trigger; manual CSV import remains the fallback and still works. What to know:
-- **Watch the first few production ticks** in `/admin` → sync runs. Expect `detail.yahoo`
-  with one entry per started bowl week; `written` > 0 only when Yahoo's numbers moved.
-  Week 25 shows `skippedNoGames: true` until Round 2's first pitch, then starts writing.
-- **Round 1 is provisional; Round 2 (Week 25) started 2026-09-14.** No manual pulls needed
-  from here unless the sync errors — a `status=error` run with backoff shows in `/admin`.
-- The verification of record: local run `sync_runs #307` through the real visit trigger
-  against live Yahoo + production Neon — Week 24 left all 8 bowl teams **unchanged** (the
-  collection-endpoint parse matched the per-team import byte for byte) and wrote the 8
-  non-bowl teams; Week 25 skipped. Production redeployed with the same code.
-- **CI was red for three pushes today (`0167372`→`4db64d6`) and I didn't check after the
-  first two.** Cause was mine: the calendar-driven featured round made the e2e depend on the
-  real date, and a "pending" badge assertion that only held while the Semifinals were compact
-  cards. Fixed in `a4ca5c7` (fixture now pins the page clock via `getE2eNow`). The rule
-  stands: `gh run list --branch main` after every push.
+See the "Where things stand" and "Known open items" blocks at the top of this file — that
+is the handoff. A paste-ready prompt for a fresh session is in `docs/handoff.md`.
 
 ## Next session (older notes)
 - Continue the weekly manual CSV cadence (see "Manual mode" above) through all three playoff
