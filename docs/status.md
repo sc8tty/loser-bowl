@@ -20,13 +20,14 @@
   on 9/14 and nobody looked (twice now).
 
 ## Known open items (in priority order)
-1. **Decide: visit-sync amplification.** `isStale` reads `sync_state.last_success`, which
-   only advances when a sync *writes* data (Aug 1 P2-7), so once nothing has changed for
-   30 min every page view schedules a full Yahoo pull until something does. Proposed fix and
-   reasoning in `docs/review-log.md` (2026-09-17). Not shipped without Scott's call.
-2. **Decide: delete `scripts/_oneoff-cleanup-placeholder-teams.ts`.** Unguarded, wipes
-   every matchup and seed; ran once in August. Recommendation is `git rm`.
-3. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+1. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
+   `sync_state.last_success`, which only advances when a sync *writes* data (Aug 1 P2-7),
+   so after a no-op sync the next visitor triggers another pull. Measured 9/18 over 48h:
+   22 syncs, 14 wrote, 8 no-ops — negligible at this traffic, so left alone mid-round.
+   Fix when convenient: `last_success` = last successful sync (any), and `lastUpdatedAt` in
+   `trigger.ts` uses only the data-writing `sync_runs` query. Reasoning in
+   `docs/review-log.md` (2026-09-17).
+2. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
 
 Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
@@ -36,6 +37,9 @@ OAuth callback and the refresh path — now rethrows `Failed to store Yahoo toke
 driver error on `cause`; `sanitizeSyncError` in `engine.ts` strips `params:` from anything
 `runSync` records as a backstop. Tests use the real `DrizzleQueryError` class so they pin
 the actual message shape, and were checked to fail without the fix.
+
+Closed 9/18: `scripts/_oneoff-cleanup-placeholder-teams.ts` removed (unguarded; deleted
+every matchup and seed; ran once in August, in git history if ever needed).
 
 Closed 9/17: the Codex security review ran to completion (brief + raw output in
 `docs/reviews/`, verified triage in `docs/review-log.md`). No P1s. The one thing acted on
