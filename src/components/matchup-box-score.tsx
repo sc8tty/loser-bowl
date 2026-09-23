@@ -5,6 +5,8 @@ import {
   effectiveWinner,
   formatHitsAtBats,
   formatInningsPitched,
+  inningsForfeit,
+  type InningsForfeit,
   formatRecord,
   matchupMeta,
   matchupStatusView,
@@ -67,17 +69,50 @@ function columnValue(
   column: Column,
   side: "high" | "low",
   stats: PublicMatchupSlot["highStats"],
+  options: { shortOfMinimum?: boolean; minInningsPitched?: number | null } = {},
 ): string {
   if (column.kind === "support") {
-    return column.key === "hab" ? formatHitsAtBats(stats) : formatInningsPitched(stats);
+    if (column.key === "hab") {
+      return formatHitsAtBats(stats);
+    }
+
+    const innings = formatInningsPitched(stats);
+
+    // "12.0 / 24.0" states the threshold in text, so the red is reinforcement
+    // rather than the only signal.
+    return options.shortOfMinimum && options.minInningsPitched
+      ? `${innings} / ${options.minInningsPitched.toFixed(1)}`
+      : innings;
   }
 
   return side === "high" ? column.row.highValue : column.row.lowValue;
 }
 
-function cellTone(column: Column, side: "high" | "low"): string {
+function cellTone(
+  column: Column,
+  side: "high" | "low",
+  forfeit: InningsForfeit | null,
+): string {
+  const shortOfMinimum =
+    forfeit !== null && (forfeit.side === "both" || forfeit.side === side);
+
   if (column.kind === "support") {
+    // The innings total is the CAUSE of the forfeit, so it carries the alarm —
+    // not the seven pitching cells, whose numbers are real and sometimes the
+    // better ones. rose-700 on white clears 4.5:1, and the "/ 24.0" suffix
+    // means the threshold reads without relying on colour (WCAG 1.4.1).
+    if (column.key === "ip" && shortOfMinimum) {
+      return "font-black text-rose-700";
+    }
+
     return "text-stone-700";
+  }
+
+  // A forfeited category did not count. Dimming says that; a strikethrough
+  // would claim the number never happened, and would wreck legibility on
+  // decimals besides. stone-500 holds 4.5:1 because it is carrying meaning.
+  if (column.row.policyLabel !== null && shortOfMinimum) {
+    return "text-stone-500";
   }
 
   if (column.row.winner === "tie") {
@@ -339,15 +374,68 @@ function StackedHeader({
   );
 }
 
+/**
+ * States the forfeit in words. The asterisks on the column headers say a policy
+ * decided those categories but not WHICH team came up short, and colour alone
+ * would not survive a screen reader — this is the part that actually explains
+ * the result, so it is plain text, not a legend.
+ */
+function InningsMinimumNote({
+  forfeit,
+  slot,
+  minInningsPitched,
+}: {
+  forfeit: InningsForfeit;
+  slot: PublicMatchupSlot;
+  minInningsPitched?: number | null;
+}) {
+  const threshold = minInningsPitched ? `${minInningsPitched.toFixed(1)} IP` : "the weekly minimum";
+  // The count comes from the tally, not from the league's category list, so it
+  // always describes what this card actually shows. No "all N" — it reads wrong
+  // at small counts, and a card scored before a rule fix can legitimately show
+  // fewer than the league's full pitching set.
+  const categories = `${forfeit.categoryCount} pitching categor${forfeit.categoryCount === 1 ? "y" : "ies"}`;
+
+  const short =
+    forfeit.side === "both"
+      ? null
+      : forfeit.side === "high"
+        ? slot.highTeam
+        : slot.lowTeam;
+  const shortStats = forfeit.side === "high" ? slot.highStats : slot.lowStats;
+
+  const text =
+    forfeit.side === "both"
+      ? `Neither team reached ${threshold}, so ${categories} are scored as ties.`
+      : `${short?.name ?? "One team"} pitched ${formatInningsPitched(shortStats)} of ${threshold} and forfeits ${categories}.`;
+
+  // Announced as its own region so a screen reader reaching the table has
+  // already been told why those columns did not count.
+
+
+  return (
+    <div className="border-t border-rose-200 bg-rose-50 px-4 py-3">
+      <p className="text-sm font-semibold text-rose-950">
+        <span className="font-black uppercase">Innings minimum · </span>
+        {text}
+      </p>
+    </div>
+  );
+}
+
 /** Phone stat list: high value | category | low value, one row per category. */
 function StackedStats({
   title,
   columns,
   slot,
+  forfeit,
+  minInningsPitched,
 }: {
   title: string;
   columns: readonly Column[];
   slot: PublicMatchupSlot;
+  forfeit: InningsForfeit | null;
+  minInningsPitched?: number | null;
 }) {
   return (
     <div>
@@ -360,8 +448,13 @@ function StackedStats({
             key={columnKey(column)}
             className="grid grid-cols-[1fr_4.5rem_1fr] items-stretch text-center font-mono text-sm tabular-nums"
           >
-            <span className={`px-3 py-2.5 ${cellTone(column, "high")}`}>
-              {columnValue(column, "high", slot.highStats)}
+            <span className={`px-3 py-2.5 ${cellTone(column, "high", forfeit)}`}>
+              {columnValue(column, "high", slot.highStats, {
+                shortOfMinimum:
+                  forfeit !== null &&
+                  (forfeit.side === "both" || forfeit.side === "high"),
+                minInningsPitched,
+              })}
             </span>
             <span className="px-1 py-2.5 font-sans text-xs font-black uppercase text-stone-500">
               {columnLabel(column)}
@@ -371,8 +464,13 @@ function StackedStats({
                 </span>
               ) : null}
             </span>
-            <span className={`px-3 py-2.5 ${cellTone(column, "low")}`}>
-              {columnValue(column, "low", slot.lowStats)}
+            <span className={`px-3 py-2.5 ${cellTone(column, "low", forfeit)}`}>
+              {columnValue(column, "low", slot.lowStats, {
+                shortOfMinimum:
+                  forfeit !== null &&
+                  (forfeit.side === "both" || forfeit.side === "low"),
+                minInningsPitched,
+              })}
             </span>
           </div>
         ))}
@@ -387,13 +485,19 @@ function StatRow({
   stats,
   columns,
   wins,
+  forfeit,
+  minInningsPitched,
 }: {
   team: PublicTeamRef | null;
   side: "high" | "low";
   stats: PublicMatchupSlot["highStats"];
   columns: readonly Column[];
   wins: number | null;
+  forfeit: InningsForfeit | null;
+  minInningsPitched?: number | null;
 }) {
+  const shortOfMinimum =
+    forfeit !== null && (forfeit.side === "both" || forfeit.side === side);
   return (
     <tr className="border-t border-stone-200">
       <th
@@ -405,9 +509,9 @@ function StatRow({
       {columns.map((column) => (
         <td
           key={columnKey(column)}
-          className={`whitespace-nowrap px-3 py-3 text-center font-mono text-sm tabular-nums ${cellTone(column, side)}`}
+          className={`whitespace-nowrap px-3 py-3 text-center font-mono text-sm tabular-nums ${cellTone(column, side, forfeit)}`}
         >
-          {columnValue(column, side, stats)}
+          {columnValue(column, side, stats, { shortOfMinimum, minInningsPitched })}
         </td>
       ))}
       <td className="whitespace-nowrap px-3 py-3 text-center font-mono text-lg font-black tabular-nums text-stone-950">
@@ -420,9 +524,11 @@ function StatRow({
 export function MatchupBoxScore({
   slot,
   statCategories,
+  minInningsPitched,
 }: {
   slot: PublicMatchupSlot;
   statCategories: readonly PublicStatCategory[];
+  minInningsPitched?: number | null;
 }) {
   const meta = matchupMeta(slot.id);
   const status = matchupStatusView(slot, slot.upstreamUnderReview);
@@ -431,6 +537,7 @@ export function MatchupBoxScore({
   const rows = categoryStatLines(slot, statCategories);
   const groups = buildColumns(rows);
   const columns = [...groups.batting, ...groups.pitching];
+  const forfeit = inningsForfeit(rows);
 
   return (
     <article
@@ -479,8 +586,20 @@ export function MatchupBoxScore({
       ) : (
         <>
           <div className="border-t border-stone-200 sm:hidden">
-            <StackedStats title="Batters" columns={groups.batting} slot={slot} />
-            <StackedStats title="Pitchers" columns={groups.pitching} slot={slot} />
+            <StackedStats
+              title="Batters"
+              columns={groups.batting}
+              slot={slot}
+              forfeit={forfeit}
+              minInningsPitched={minInningsPitched}
+            />
+            <StackedStats
+              title="Pitchers"
+              columns={groups.pitching}
+              slot={slot}
+              forfeit={forfeit}
+              minInningsPitched={minInningsPitched}
+            />
           </div>
 
           <div className="hidden overflow-x-auto border-t border-stone-200 sm:block">
@@ -522,6 +641,8 @@ export function MatchupBoxScore({
                   stats={slot.highStats}
                   columns={columns}
                   wins={tally?.highWins ?? null}
+                  forfeit={forfeit}
+                  minInningsPitched={minInningsPitched}
                 />
                 <StatRow
                   team={slot.lowTeam}
@@ -529,11 +650,21 @@ export function MatchupBoxScore({
                   stats={slot.lowStats}
                   columns={columns}
                   wins={tally?.lowWins ?? null}
+                  forfeit={forfeit}
+                  minInningsPitched={minInningsPitched}
                 />
               </tbody>
             </table>
           </div>
         </>
+      )}
+
+      {forfeit === null ? null : (
+        <InningsMinimumNote
+          forfeit={forfeit}
+          slot={slot}
+          minInningsPitched={minInningsPitched}
+        />
       )}
 
       {slot.overrideWinner ? (

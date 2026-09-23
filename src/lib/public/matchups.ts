@@ -605,6 +605,48 @@ export function categoryStatLines(
   });
 }
 
+export type InningsForfeit = {
+  /** Which side missed the minimum. "both" means neither side reached it. */
+  side: "high" | "low" | "both";
+  /** How many categories were decided by the forfeit. */
+  categoryCount: number;
+};
+
+/**
+ * Derives the innings-minimum forfeit from the recorded tally rather than by
+ * re-comparing innings against the threshold, so what the card shows can never
+ * disagree with what actually decided the matchup.
+ *
+ * The policy marks every pitching category it decides: all won by one side
+ * means the OTHER side came up short; all ties means neither side reached the
+ * minimum.
+ */
+export function inningsForfeit(
+  rows: readonly CategoryStatLine[],
+): InningsForfeit | null {
+  const decided = rows.filter((row) => row.policyLabel === "IP minimum");
+
+  if (decided.length === 0) {
+    return null;
+  }
+
+  if (decided.every((row) => row.winner === "tie")) {
+    return { side: "both", categoryCount: decided.length };
+  }
+
+  if (decided.every((row) => row.winner === "high")) {
+    return { side: "low", categoryCount: decided.length };
+  }
+
+  if (decided.every((row) => row.winner === "low")) {
+    return { side: "high", categoryCount: decided.length };
+  }
+
+  // Mixed winners are not something the policy can produce; say nothing rather
+  // than assert a forfeit against the wrong team.
+  return null;
+}
+
 export function matchupStatusView(
   matchup: Pick<PublicMatchup, "status"> &
     Partial<Pick<PublicMatchup, "computedTally" | "liveTally">>,

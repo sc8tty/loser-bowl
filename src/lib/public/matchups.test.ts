@@ -6,10 +6,12 @@ import {
   displayTally,
   formatDecidedBy,
   formatTally,
+  inningsForfeit,
   isLiveMatchup,
   liveLeader,
   matchupStatusView,
   parseComputedTally,
+  type CategoryStatLine,
   resultExplanation,
   type PublicComputedTally,
   type PublicLiveTally,
@@ -309,5 +311,73 @@ describe("live tally (manual-mode mid-week view)", () => {
     ).toBe(
       "Live: tied 5-5-5. Updates with each stats import; nothing is decided until the week closes.",
     );
+  });
+});
+
+describe("inningsForfeit", () => {
+  const row = (
+    slug: string,
+    winner: "high" | "low" | "tie",
+    policyLabel: string | null,
+  ): CategoryStatLine => ({
+    slug,
+    label: slug.toUpperCase(),
+    highValue: "1",
+    lowValue: "1",
+    winner,
+    policyLabel,
+  });
+
+  it("names the side that came up short", () => {
+    // Every policy-decided category won by the high side => the LOW side was
+    // the one under the minimum.
+    expect(
+      inningsForfeit([
+        row("r", "low", null),
+        row("w", "high", "IP minimum"),
+        row("era", "high", "IP minimum"),
+      ]),
+    ).toEqual({ side: "low", categoryCount: 2 });
+
+    expect(
+      inningsForfeit([
+        row("w", "low", "IP minimum"),
+        row("era", "low", "IP minimum"),
+      ]),
+    ).toEqual({ side: "high", categoryCount: 2 });
+  });
+
+  it("reports both when neither team reached the minimum", () => {
+    expect(
+      inningsForfeit([
+        row("w", "tie", "IP minimum"),
+        row("era", "tie", "IP minimum"),
+      ]),
+    ).toEqual({ side: "both", categoryCount: 2 });
+  });
+
+  it("is silent when no category was decided by the policy", () => {
+    expect(inningsForfeit([row("r", "high", null), row("era", "low", null)])).toBeNull();
+  });
+
+  it("counts only the categories the tally actually forfeited", () => {
+    // A card scored before the all-pitching fix shows two forfeits, not seven;
+    // the note must describe THAT card, not the league's full category list.
+    expect(
+      inningsForfeit([
+        row("w", "high", null),
+        row("era", "high", "IP minimum"),
+        row("whip", "high", "IP minimum"),
+      ]),
+    ).toEqual({ side: "low", categoryCount: 2 });
+  });
+
+  it("refuses to name a side when policy winners disagree", () => {
+    expect(
+      inningsForfeit([
+        row("w", "high", "IP minimum"),
+        row("era", "low", "IP minimum"),
+      ]),
+    ).toBeNull();
   });
 });

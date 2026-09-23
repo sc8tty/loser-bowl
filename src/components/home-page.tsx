@@ -128,6 +128,7 @@ export function HomePage({ data, now }: { data: LeagueData; now: Date }) {
             id="full-bracket"
             matchups={data.matchups}
             statCategories={data.statCategories}
+            minInningsPitched={data.minInningsPitched}
             now={now}
           />
         )}
@@ -231,6 +232,7 @@ function ChampionView({
         id="full-bracket"
         matchups={data.matchups}
         statCategories={data.statCategories}
+        minInningsPitched={data.minInningsPitched}
         now={now}
       />
     </>

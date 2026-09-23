@@ -169,11 +169,13 @@ function RoundHeading({ round }: { round: 1 | 2 | 3 }) {
 export function BracketView({
   matchups,
   statCategories,
+  minInningsPitched,
   id,
   now = new Date(),
 }: {
   matchups: readonly PublicMatchup[];
   statCategories: readonly PublicStatCategory[];
+  minInningsPitched?: number | null;
   id?: string;
   now?: Date;
 }) {
@@ -189,7 +191,12 @@ export function BracketView({
     slots
       .filter((slot) => slot.round === target)
       .map((slot) => (
-        <MatchupBoxScore key={slot.id} slot={slot} statCategories={statCategories} />
+        <MatchupBoxScore
+          key={slot.id}
+          slot={slot}
+          statCategories={statCategories}
+          minInningsPitched={minInningsPitched}
+        />
       ));
 
   return (

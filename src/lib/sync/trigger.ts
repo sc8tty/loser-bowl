@@ -61,6 +61,9 @@ export type LeagueData =
       matchups: PublicMatchup[];
       // League scoring categories in display order, for the box-score columns.
       statCategories: readonly PublicStatCategory[];
+      // The weekly innings-pitched minimum, so the box score can name the
+      // threshold a forfeiting team missed ("12.0 of 24.0").
+      minInningsPitched?: number | null;
       phase: BracketPhase;
       lastSuccessAt: Date | null;
       // Public-facing "Updated" freshness: the more recent of the Yahoo sync
@@ -102,6 +105,7 @@ export type MatchupDetailData =
       lastSuccessAt: Date | null;
       matchups: PublicMatchup[];
       statCategories: readonly PublicStatCategory[];
+      minInningsPitched?: number | null;
     };
 
 type TeamRow = {
@@ -408,7 +412,10 @@ export async function getLeagueData(
         .from(statLines)
         .where(inArray(statLines.week, BOWL_WEEKS)),
       db
-        .select({ statCategories: leagueSettings.statCategories })
+        .select({
+          statCategories: leagueSettings.statCategories,
+          minInningsPitched: leagueSettings.minInningsPitched,
+        })
         .from(leagueSettings)
         .where(eq(leagueSettings.season, LEAGUE_CONFIG.season))
         .limit(1),
@@ -457,6 +464,7 @@ export async function getLeagueData(
       lastSuccessAt,
       lastUpdatedAt,
       statCategories: settingsRows[0]?.statCategories ?? [],
+      minInningsPitched: settingsRows[0]?.minInningsPitched ?? null,
       matchups: publicMatchups(matchupRows, teamRows, {
         statLines: statLineRows,
         statCategories: settingsRows[0]?.statCategories ?? null,
@@ -528,6 +536,7 @@ export async function getMatchupDetailData(
         db
           .select({
             statCategories: leagueSettings.statCategories,
+            minInningsPitched: leagueSettings.minInningsPitched,
           })
           .from(leagueSettings)
           .where(eq(leagueSettings.season, LEAGUE_CONFIG.season))
@@ -574,6 +583,7 @@ export async function getMatchupDetailData(
     });
 
     const statCategories = settingsRows[0]?.statCategories ?? [];
+    const minInningsPitched = settingsRows[0]?.minInningsPitched ?? null;
     const matchupsForPublic = publicMatchups(matchupRows, teamRows, {
       statLines: statLineRows,
       statCategories: settingsRows[0]?.statCategories ?? null,
@@ -602,6 +612,7 @@ export async function getMatchupDetailData(
       lastSuccessAt,
       matchups: matchupsForPublic,
       statCategories,
+      minInningsPitched,
     };
   } catch (error) {
     if (error instanceof MissingDatabaseUrlError) {
