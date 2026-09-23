@@ -1,4 +1,4 @@
-# Status (as of 2026-09-17 — Round 2 in progress, the site syncs itself)
+# Status (as of 2026-09-23 — the Final is live; a scoring rule was wrong and is fixed)
 
 **Read this block first; everything below it is history, newest first.**
 
@@ -8,7 +8,11 @@
   pulls every started bowl week from Yahoo in one call per week, diffs, writes only changed
   rows, then runs the engine's housekeeping. No manual pulls are needed. Manual CSV import
   (`npm run import:stats`) and the per-day ledger + `roll-up-week` remain as the **fallback**.
-- **Round 1 is final** (24-hour correction window lapsed the night of 9/15): Furries 9-6-0,
+- **The innings-minimum forfeit was wrong and a Round 1 result changed** — read the
+  2026-09-23 section below before touching scoring. Bracket now: R1 Furries / Eat The Rich /
+  **Trout's Honor** / Me So Hoerner; Semis Eat The Rich, Me So Hoerner; **Final (Week 26,
+  Sep 21-27) Eat The Rich vs Me So Hoerner, in progress.**
+- **Round 1 was final** (24-hour correction window lapsed the night of 9/15): Furries 9-6-0,
   Eat The Rich 8-5-2, Sheatriptease 8-5-2, Me So Hoerner 11-3-1. **Round 2 (Week 25, Sep
   14–20)**: Eat The Rich vs Furries, Me So Hoerner vs Sheatriptease. **Final** Week 26.
 - **Home page**: current round as full box scores on top → upcoming Final as a full-width
@@ -60,15 +64,42 @@ from memory ("Hoerner owns the tiebreaker, they met once and Trout lost 4-8").
   also leads on season category wins (153-150) — the buggy fallback happened to agree.
 
 ## Known open items (in priority order)
-1. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
+1. **BLOCKED, do this first: replay `r1m4` and `r2m1`.** They still hold the pre-fix
+   ERA/WHIP-only tallies, so their box scores credit You Hang'em (20.2 IP) and Baseball
+   Furries (22.2 IP) with pitching categories they forfeited, and their cards read
+   "forfeits 2 pitching categories" instead of 7. **Winners do not change** — verified
+   expected results are r1m4 **14-1-0** and r2m1 **14-0-1**. Procedure is the one used for
+   `r1m3`/`r2m2` on 9/23: `update matchups set status='pending', computed_tally=null,
+   computed_winner_team_id=null, decided_by=null, locked_at=null, settled_at=null,
+   override_winner_team_id=null, override_note=null, overridden_at=null where id in
+   ('r1m4','r2m1')`, then hit the live site a few times to trigger the engine. In this
+   session the write was refused twice by Claude Code's permission classifier
+   ("Modify Shared Resources") — it needs a Bash permission rule, or run it by hand.
+2. **Watch the Final close out** Sunday night 9/27 -> Monday. It should go `provisional`
+   on the first tick after the week ends, then `final` 24h later. Both finalists are far
+   under 24 IP mid-week, which is normal — the live tally deliberately skips the minimum.
+   If BOTH finish under 24, all 7 pitching categories tie and only the 8 batting categories
+   decide it; 8 is even, so a dead tie is a live possibility. That path is now safe: the
+   head-to-head table is populated and the tiebreaker is Eat The Rich (they beat Hoerner in
+   weeks 1 and 16).
+3. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
    `sync_state.last_success`, which only advances when a sync *writes* data (Aug 1 P2-7),
    so after a no-op sync the next visitor triggers another pull. Measured 9/18 over 48h:
    22 syncs, 14 wrote, 8 no-ops — negligible at this traffic, so left alone mid-round.
    Fix when convenient: `last_success` = last successful sync (any), and `lastUpdatedAt` in
    `trigger.ts` uses only the data-writing `sync_runs` query. Reasoning in
    `docs/review-log.md` (2026-09-17).
-2. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+4. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
+
+Closed 9/23: the box score now states the forfeit in words ("Sheatriptease Bangeliers
+pitched 12.0 of 24.0 IP and forfeits 7 pitching categories"), reddens the **IP** cell and
+renders it `12.0 / 24.0` so the threshold is text rather than colour alone, and mutes the
+forfeited cells to stone-500. Deliberately NOT strikethrough: the stats were really posted,
+and struck decimals are unreadable. `inningsForfeit()` in `public/matchups.ts` derives the
+short side from the recorded tally, never by re-comparing innings, so a card can't claim
+something its own table doesn't show — which is why the two un-replayed cards honestly say
+"2" (see open item 1).
 
 Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
 so a failed token upsert would have written the Yahoo access + refresh tokens into
@@ -101,6 +132,22 @@ plans 0 of 16 changes; doctored fixtures for the duplicate and rename cases are 
   count for the Semifinals for ~9 hours (9/15). A KNOWN stat id with an unusable value now
   throws. Three fixtures pin all three states (`src/lib/yahoo/__fixtures__/`).
 - `game_key` for MLB 2026 is **469** (league key `469.l.16468`); the `458` guess was wrong.
+- **Per-player and per-day data IS reachable**, which makes lineup counterfactuals possible:
+  `team/<team_key>/roster;date=YYYY-MM-DD/players/stats;type=date;date=YYYY-MM-DD`. Each
+  player carries `selected_position` (SP/RP/P = started, BN/IL/NA = benched) and stats for
+  that date. Used 9/23 to reconstruct what Trout's Honor and Me So Hoerner would have scored
+  had they started every SP.
+- **Yahoo returns only the league's OWN scoring stats per player** — for pitchers here that
+  is IP, W, BB, K, ERA, WHIP, K/9, NSVH. There are no earned-runs or hits-allowed columns,
+  so aggregating pitchers means **deriving the numerators**: `ER = ERA x IP / 9` and
+  `H = WHIP x IP - BB`. Exact enough at 2-decimal ratios (error under ~0.5 ER). Same
+  ratio x innings trick as `SEEDED_LEAGUE_SETTINGS_NOTE`.
+- `league/<league_key>/scoreboard;week=N` gives every matchup with `winner_team_key`,
+  `is_tied`, `is_playoffs`, `status` ("postevent" = complete) and a `stat_winners` array —
+  which is where `npm run import:matchups:yahoo` gets the head-to-head series.
+- **`stat_lines` holds all 16 teams every bowl week, not just bracket teams.** That is why a
+  hypothetical matchup between two non-paired teams can be scored from data already in the
+  DB — do not assume a counterfactual needs a fresh pull.
 - A rendered OAuth **consent screen does not mean the API is authorized** — probe
   `/game/mlb` (403 = gated). Same-evening web scrapes miss West Coast games; the API
   returns exact cumulative ratios, which is why the ledger's weighting is now fallback-only.
