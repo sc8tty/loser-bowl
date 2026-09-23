@@ -9,6 +9,17 @@ const tiedMatchup = {
   teamBWins: 5,
 };
 
+/**
+ * A loaded season that simply contains no meeting between team-a and team-b.
+ * An EMPTY list means "the schedule was never imported" and is rejected, so
+ * "these two never met" has to be expressed with real rows for other teams.
+ */
+const seasonWithoutThisPair = [
+  { teamAId: "team-c", teamBId: "team-d", winnerTeamId: "team-c" },
+  { teamAId: "team-a", teamBId: "team-e", winnerTeamId: "team-a" },
+  { teamAId: "team-b", teamBId: "team-f", winnerTeamId: "team-f" },
+];
+
 describe("applyTiebreakers", () => {
   it("returns the category winner before consulting tiebreakers", () => {
     expect(
@@ -74,7 +85,7 @@ describe("applyTiebreakers", () => {
   it("falls through from zero meetings to season category wins", () => {
     expect(
       applyTiebreakers(tiedMatchup, {
-        regularSeasonMatchups: [],
+        regularSeasonMatchups: seasonWithoutThisPair,
         outcomeTotalsByTeamId: {
           "team-a": { category_wins: 88 },
           "team-b": { category_wins: 89 },
@@ -87,7 +98,7 @@ describe("applyTiebreakers", () => {
   it("uses the numerically lower seed as the deterministic terminus", () => {
     expect(
       applyTiebreakers(tiedMatchup, {
-        regularSeasonMatchups: [],
+        regularSeasonMatchups: seasonWithoutThisPair,
         outcomeTotalsByTeamId: {
           "team-a": { category_wins: 88 },
           "team-b": { category_wins: 88 },
@@ -113,6 +124,37 @@ describe("applyTiebreakers rejects corrupt context instead of silently proceedin
     ).toThrow(/missing category win counts/);
   });
 
+  it("throws when the regular-season schedule was never loaded", () => {
+    // Regression for the 2026 bowl: regular_season_matchups sat empty in
+    // production all season, so every tie silently skipped the league's FIRST
+    // tiebreaker (head-to-head) and was decided on season totals instead.
+    expect(() =>
+      applyTiebreakers(tiedMatchup, {
+        regularSeasonMatchups: [],
+        outcomeTotalsByTeamId: {
+          "team-a": { category_wins: 88 },
+          "team-b": { category_wins: 89 },
+        },
+        seedsByTeamId: { "team-a": 9, "team-b": 16 },
+      }),
+    ).toThrow(/no regular-season matchups are loaded/);
+  });
+
+  it("still decides on categories without needing the schedule at all", () => {
+    // The guard sits after the category comparison, so a decisive matchup
+    // never touches the schedule and cannot be broken by a missing import.
+    expect(
+      applyTiebreakers(
+        { ...tiedMatchup, teamAWins: 8, teamBWins: 6 },
+        {
+          regularSeasonMatchups: [],
+          outcomeTotalsByTeamId: {},
+          seedsByTeamId: {},
+        },
+      ),
+    ).toEqual({ winnerTeamId: "team-a", decidedBy: "categories" });
+  });
+
   it("throws when a regular-season row names a winner outside the pair", () => {
     expect(() =>
       applyTiebreakers(tiedMatchup, {
@@ -128,7 +170,7 @@ describe("applyTiebreakers rejects corrupt context instead of silently proceedin
   it("throws when season category-win totals are missing rather than skipping to seed", () => {
     expect(() =>
       applyTiebreakers(tiedMatchup, {
-        regularSeasonMatchups: [],
+        regularSeasonMatchups: seasonWithoutThisPair,
         outcomeTotalsByTeamId: { "team-a": { category_wins: 90 } },
         seedsByTeamId: { "team-a": 9, "team-b": 16 },
       }),

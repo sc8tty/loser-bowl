@@ -613,7 +613,12 @@ describe("decideMatchupComputation", () => {
           5,
         ),
         teams: [matchupTeam("team-a", 9), matchupTeam("team-b", 16)],
-        regularSeasonMatchups: [],
+        // A loaded schedule that simply has no meeting between this pair, so
+        // the tiebreaker reaches the season-totals branch this test is about.
+        // An EMPTY list is now its own error (the schedule was never imported).
+        regularSeasonMatchups: [
+          { teamAId: "team-c", teamBId: "team-d", winnerTeamId: "team-c" },
+        ],
         leagueSettings,
         now: R1_CLOSE,
       }),

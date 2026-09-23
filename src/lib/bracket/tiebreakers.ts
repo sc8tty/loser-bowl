@@ -95,6 +95,20 @@ export function applyTiebreakers(
     };
   }
 
+  // An EMPTY table is corrupt context, not "these two never played": the
+  // league's first tiebreaker is the regular-season head-to-head, and silently
+  // scoring it 0-0 skips straight to season totals and can hand the matchup to
+  // the wrong team. This table sat empty in production through the whole 2026
+  // bowl (the CSV importer was never run, and the Yahoo sync does not populate
+  // it), which is exactly the failure this refuses to repeat. A NON-empty table
+  // with no row for this pair is a legitimate "never met" and falls through.
+  // Same rule the season-totals branch below already applies (max-review F).
+  if (context.regularSeasonMatchups.length === 0) {
+    throw new Error(
+      "Tiebreaker needs the regular-season head-to-head series, but no regular-season matchups are loaded — refusing to skip to season totals on empty data.",
+    );
+  }
+
   let headToHeadWinsA = 0;
   let headToHeadWinsB = 0;
 
