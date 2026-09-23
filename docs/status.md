@@ -42,10 +42,13 @@ spike that never happened, so a below-minimum team still competed for W, BB, K, 
   benched starting pitcher restored from the Yahoo daily rosters (7-6-2 — Trout's Honor wins
   6 of 7 pitching categories but loses batting 7-0-1). The asymmetric case (Trout's starts
   everyone, Hoerner does not) is a 7-7-1 dead tie decided by head-to-head, also Hoerner.
-- **STILL TO DO:** `r1m4` and `r2m1` were NOT replayed (the write was blocked by the
-  permission classifier). Their winners are correct, but their stored box scores still credit
-  the below-minimum team (You Hang'em 20.2 IP; Furries 22.2 IP) with pitching categories they
-  forfeited. Expected after replay: r1m4 14-1-0, r2m1 14-0-1. Same reset-and-resync procedure.
+- **`r1m4` and `r2m1` replayed 2026-09-23 20:00Z** (same reset-and-resync). Before the write,
+  a read-only oracle ran the engine's own `computeMatchupResult` over the production
+  `stat_lines` and predicted r1m4 **14-1-0** (was 11-3-1: W, BB, K/9 moved to Hoerner) and
+  r2m1 **14-0-1** (was 13-1-1: NSVH moved to Eat The Rich); `r1m3`/`r2m2` recomputed to exactly
+  their stored tallies as a control. The first tick after the reset wrote exactly the predicted
+  tallies, winners unchanged, no other row touched. Both sit `provisional` until ~9/24 20:00Z.
+  Every below-minimum card on the live site now reads "forfeits 7 pitching categories".
 
 ## 2026-09-23 — regular_season_matchups was EMPTY all season (tiebreaker bug)
 The league's first playoff tiebreaker is the regular-season head-to-head series. That table
@@ -64,32 +67,22 @@ from memory ("Hoerner owns the tiebreaker, they met once and Trout lost 4-8").
   also leads on season category wins (153-150) — the buggy fallback happened to agree.
 
 ## Known open items (in priority order)
-1. **BLOCKED, do this first: replay `r1m4` and `r2m1`.** They still hold the pre-fix
-   ERA/WHIP-only tallies, so their box scores credit You Hang'em (20.2 IP) and Baseball
-   Furries (22.2 IP) with pitching categories they forfeited, and their cards read
-   "forfeits 2 pitching categories" instead of 7. **Winners do not change** — verified
-   expected results are r1m4 **14-1-0** and r2m1 **14-0-1**. Procedure is the one used for
-   `r1m3`/`r2m2` on 9/23: `update matchups set status='pending', computed_tally=null,
-   computed_winner_team_id=null, decided_by=null, locked_at=null, settled_at=null,
-   override_winner_team_id=null, override_note=null, overridden_at=null where id in
-   ('r1m4','r2m1')`, then hit the live site a few times to trigger the engine. In this
-   session the write was refused twice by Claude Code's permission classifier
-   ("Modify Shared Resources") — it needs a Bash permission rule, or run it by hand.
-2. **Watch the Final close out** Sunday night 9/27 -> Monday. It should go `provisional`
+1. **Watch the Final close out** Sunday night 9/27 -> Monday. It should go `provisional`
    on the first tick after the week ends, then `final` 24h later. Both finalists are far
    under 24 IP mid-week, which is normal — the live tally deliberately skips the minimum.
    If BOTH finish under 24, all 7 pitching categories tie and only the 8 batting categories
    decide it; 8 is even, so a dead tie is a live possibility. That path is now safe: the
    head-to-head table is populated and the tiebreaker is Eat The Rich (they beat Hoerner in
-   weeks 1 and 16).
-3. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
+   weeks 1 and 16). Before that, on any tick after ~9/24 20:00Z, the four replayed rows
+   (`r1m3`, `r1m4`, `r2m1`, `r2m2`) should all read `final` with unchanged tallies.
+2. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
    `sync_state.last_success`, which only advances when a sync *writes* data (Aug 1 P2-7),
    so after a no-op sync the next visitor triggers another pull. Measured 9/18 over 48h:
    22 syncs, 14 wrote, 8 no-ops — negligible at this traffic, so left alone mid-round.
    Fix when convenient: `last_success` = last successful sync (any), and `lastUpdatedAt` in
    `trigger.ts` uses only the data-writing `sync_runs` query. Reasoning in
    `docs/review-log.md` (2026-09-17).
-4. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
+3. Vercel Hobby limits cron to daily, so freshness depends on visits. Fine for this league;
    Pro + a cron entry on `/api/sync` (route exists, takes `CRON_SECRET`) if it ever isn't.
 
 Closed 9/23: the box score now states the forfeit in words ("Sheatriptease Bangeliers
@@ -98,8 +91,8 @@ renders it `12.0 / 24.0` so the threshold is text rather than colour alone, and 
 forfeited cells to stone-500. Deliberately NOT strikethrough: the stats were really posted,
 and struck decimals are unreadable. `inningsForfeit()` in `public/matchups.ts` derives the
 short side from the recorded tally, never by re-comparing innings, so a card can't claim
-something its own table doesn't show — which is why the two un-replayed cards honestly say
-"2" (see open item 1).
+something its own table doesn't show — which is why the two un-replayed cards honestly said
+"2" until they were replayed later that day.
 
 Closed 9/17: the Low security finding (a `DrizzleQueryError` message embeds bound params,
 so a failed token upsert would have written the Yahoo access + refresh tokens into
