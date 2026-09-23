@@ -53,7 +53,34 @@ export type InningsMinimumPolicy = (
   input: InningsMinimumPolicyInput,
 ) => InningsMinimumPolicyDecision;
 
-const pitchingRatioCategorySlugs = new Set(["era", "whip"]);
+/**
+ * Every pitching category the league scores.
+ *
+ * Yahoo's rule is that a team under the weekly innings minimum "will
+ * automatically lose ALL the pitching categories your league uses" — not just
+ * the rate stats. This shipped as `["era", "whip"]` (with a note that it was
+ * unverified pending a spike that never happened) and mis-scored live results:
+ * a below-minimum team still competed normally for W, BB, K, K/9 and NSVH.
+ *
+ * Verified 2026-09-23 against Lander's League Scoring & Settings: min IP 24,
+ * pitcher categories W, BB, K, ERA, WHIP, K/9, NSVH. `forfeitsAllPitching`
+ * below pins this list against the seed so a category change fails CI instead
+ * of silently narrowing the forfeit again. (The durable fix is a `group` field
+ * on StatCategory; that needs a migration of the stored league_settings and is
+ * deliberately not being done mid-bracket.)
+ */
+const pitchingCategorySlugs = new Set([
+  "w",
+  "bb",
+  "k",
+  "era",
+  "whip",
+  "k9",
+  "nsvh",
+]);
+
+/** Exported for the drift test only. */
+export const forfeitsAllPitching: ReadonlySet<string> = pitchingCategorySlugs;
 
 function parseMaybeInningsPitched(
   raw: WeekStats[string],
@@ -76,10 +103,14 @@ function parseMaybeInningsPitched(
 }
 
 /**
- * Default innings-minimum behavior for Yahoo-style weekly baseball matchups.
+ * Yahoo's weekly innings-pitched minimum: a team that finishes the week below
+ * it forfeits every pitching category to its opponent.
  *
- * UNVERIFIED against Yahoo until the Issue 3 spike. The policy seam exists so
- * the spike's findings can replace this behavior without touching compareWeek.
+ * When BOTH teams are short, every pitching category is scored a tie. Yahoo
+ * documents only the one-sided case, so this is a ruling rather than a
+ * transcription — it is the reading that treats both teams identically. It was
+ * checked against every settled 2026 bowl matchup and changes no winner under
+ * any of the three plausible readings.
  */
 export const defaultInningsMinimumPolicy: InningsMinimumPolicy = ({
   category,
@@ -91,7 +122,7 @@ export const defaultInningsMinimumPolicy: InningsMinimumPolicy = ({
   if (
     minInningsPitched === null ||
     minInningsPitched <= 0 ||
-    !pitchingRatioCategorySlugs.has(category.slug)
+    !pitchingCategorySlugs.has(category.slug)
   ) {
     return { applies: false };
   }
@@ -245,9 +276,9 @@ export function compareWeek(
     const teamAValue = parseComparable(category.slug, statsA[category.slug]);
     const teamBValue = parseComparable(category.slug, statsB[category.slug]);
 
-    // Policy first: a below-minimum team legitimately shows "-" for ERA/WHIP
-    // in its final week, and the forfeit must win over the integrity throw
-    // (cold-review P2-5).
+    // Policy first: a below-minimum team legitimately shows "-" for its rate
+    // stats in its final week, and the forfeit must win over the integrity
+    // throw (cold-review P2-5).
     const policyDecision = inningsMinimumPolicy({
       category,
       statsA,

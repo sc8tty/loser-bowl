@@ -4,7 +4,9 @@ import type { WeekStatCategory } from "./comparator";
 import {
   compareWeek,
   defaultInningsMinimumPolicy,
+  forfeitsAllPitching,
 } from "./comparator";
+import { SEEDED_LEAGUE_SETTINGS } from "@/config/categories.seed";
 
 const categories = [
   {
@@ -286,5 +288,116 @@ describe("compareWeek regressions from the cold review", () => {
         mode: "live",
       }),
     ).toEqual({ applies: false });
+  });
+});
+
+describe("innings minimum forfeits every pitching category", () => {
+  // Lander's League, verified against Yahoo's Scoring & Settings page.
+  const leaguePitching = ["w", "bb", "k", "era", "whip", "k9", "nsvh"];
+  const leagueBatting = ["r", "2b", "3b", "hr", "rbi", "sb", "avg", "ops"];
+
+  const fullCategories = [...leagueBatting, ...leaguePitching].map((slug) => ({
+    slug,
+    sort_order: slug === "bb" || slug === "era" || slug === "whip" ? "asc" : "desc",
+    is_only_display_stat: false,
+  })) as WeekStatCategory[];
+
+  function line(innings: string, value: string) {
+    return Object.fromEntries([
+      ...[...leagueBatting, ...leaguePitching].map((slug) => [slug, value]),
+      ["innings_pitched", innings],
+    ]);
+  }
+
+  it("gives the opponent all seven pitching categories, not just ERA and WHIP", () => {
+    // Team B is short. Every pitching value is set so that B would otherwise
+    // WIN the category outright, proving the forfeit overrides the comparison
+    // rather than merely coinciding with it.
+    const short = { ...line("12.0", "50"), bb: "0", era: "0.00", whip: "0.00" };
+    const met = { ...line("30.0", "1"), bb: "99", era: "9.99", whip: "9.99" };
+
+    const result = compareWeek(met, short, fullCategories, {
+      minInningsPitched: 24,
+      mode: "final",
+    });
+
+    const forfeited = result.categories
+      .filter((c) => c.decidedByPolicy === "innings_minimum")
+      .map((c) => [c.slug, c.winner]);
+
+    expect(forfeited).toEqual(leaguePitching.map((slug) => [slug, "teamA"]));
+    expect(result.teamAWins).toBeGreaterThanOrEqual(leaguePitching.length);
+  });
+
+  it("ties every pitching category when both teams are short", () => {
+    const result = compareWeek(
+      line("12.0", "5"),
+      line("11.0", "9"),
+      fullCategories,
+      { minInningsPitched: 24, mode: "final" },
+    );
+
+    expect(
+      result.categories
+        .filter((c) => c.decidedByPolicy === "innings_minimum")
+        .map((c) => [c.slug, c.winner]),
+    ).toEqual(leaguePitching.map((slug) => [slug, "tie"]));
+  });
+
+  it("leaves batting categories alone", () => {
+    const result = compareWeek(
+      { ...line("30.0", "1"), r: "1" },
+      { ...line("12.0", "9"), r: "9" },
+      fullCategories,
+      { minInningsPitched: 24, mode: "final" },
+    );
+
+    const batting = result.categories.filter((c) =>
+      leagueBatting.includes(c.slug),
+    );
+
+    expect(batting.every((c) => c.decidedByPolicy === undefined)).toBe(true);
+    expect(batting.find((c) => c.slug === "r")?.winner).toBe("teamB");
+  });
+
+  it("the forfeit list matches the league's scored pitching categories", () => {
+    // Drift guard: if a category is renamed, added or removed in the seed,
+    // this fails rather than silently narrowing the forfeit (which is exactly
+    // how ["era","whip"] mis-scored Round 1 of the 2026 bowl).
+    expect([...forfeitsAllPitching].sort()).toEqual([...leaguePitching].sort());
+
+    const scored = SEEDED_LEAGUE_SETTINGS.statCategories
+      .filter((c) => !c.is_only_display_stat)
+      .map((c) => c.slug);
+
+    for (const slug of leaguePitching) {
+      expect(scored).toContain(slug);
+    }
+    expect(scored).toHaveLength(leagueBatting.length + leaguePitching.length);
+  });
+
+  it("does not apply when both teams meet the minimum", () => {
+    const result = compareWeek(
+      line("30.0", "5"),
+      line("25.0", "5"),
+      fullCategories,
+      { minInningsPitched: 24, mode: "final" },
+    );
+
+    expect(
+      result.categories.some((c) => c.decidedByPolicy !== undefined),
+    ).toBe(false);
+  });
+
+  it("still does not apply mid-week in live mode", () => {
+    const decision = defaultInningsMinimumPolicy({
+      category: { slug: "k", sort_order: "desc", is_only_display_stat: false },
+      statsA: { innings_pitched: "" },
+      statsB: { innings_pitched: "" },
+      minInningsPitched: 24,
+      mode: "live",
+    });
+
+    expect(decision.applies).toBe(false);
   });
 });
