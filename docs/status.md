@@ -19,6 +19,46 @@
   **Check `gh run list --branch main` after every push** — it went red for three pushes
   on 9/14 and nobody looked (twice now).
 
+## 2026-09-23 — the innings-minimum forfeit was wrong, and it changed a Round 1 result
+A league manager reported teams missing the 24 IP minimum. He was right, and the scoring
+was wrong. Yahoo's rule (confirmed on the league's own team page: "you will lose all of
+your pitching games for that week") forfeits **every** pitching category. The policy only
+ever forfeited **ERA and WHIP** — it shipped as a placeholder marked UNVERIFIED pending a
+spike that never happened, so a below-minimum team still competed for W, BB, K, K/9, NSVH.
+- **Fixed in `5363c54`.** `comparator.ts` now forfeits all seven (W, BB, K, ERA, WHIP, K/9,
+  NSVH), with a drift test pinning the list against the seed. Both teams short = every
+  pitching category ties (a ruling, not a transcription; changes no 2026 result).
+- **Round 1 Matchup 3 flipped.** Sheatriptease pitched 12.0 IP and was recorded beating
+  Trout's Honor 8-5; scored correctly they lose 6-8. **Trout's Honor should have advanced.**
+  Replayed on 2026-09-23 (reset to `pending`, engine recomputed + re-advanced): r1m3 is now
+  Trout's Honor 8-6-1, and r2m2 re-paired to Trout's Honor vs Me So Hoerner (0-7-8, Hoerner).
+  Both sat `provisional` for the 24h correction window.
+- **The Final never changed.** Me So Hoerner beats Trout's Honor under every scenario tested:
+  as recorded (12-2-1), correct forfeit (7-0-8), no forfeit at all, and even with every
+  benched starting pitcher restored from the Yahoo daily rosters (7-6-2 — Trout's Honor wins
+  6 of 7 pitching categories but loses batting 7-0-1). The asymmetric case (Trout's starts
+  everyone, Hoerner does not) is a 7-7-1 dead tie decided by head-to-head, also Hoerner.
+- **STILL TO DO:** `r1m4` and `r2m1` were NOT replayed (the write was blocked by the
+  permission classifier). Their winners are correct, but their stored box scores still credit
+  the below-minimum team (You Hang'em 20.2 IP; Furries 22.2 IP) with pitching categories they
+  forfeited. Expected after replay: r1m4 14-1-0, r2m1 14-0-1. Same reset-and-resync procedure.
+
+## 2026-09-23 — regular_season_matchups was EMPTY all season (tiebreaker bug)
+The league's first playoff tiebreaker is the regular-season head-to-head series. That table
+had **0 rows** in production — the CSV importer was never run and the Yahoo sync never
+populated it — so `applyTiebreakers` scored h2h 0-0 and silently fell through to season
+category totals. Found while resolving a hypothetical tie; Scott caught the wrong answer
+from memory ("Hoerner owns the tiebreaker, they met once and Trout lost 4-8").
+- `8a2d7fc`: the tiebreaker now **throws** on an empty table (a non-empty table with no row
+  for the pair is still a legitimate "never met"). The guard sits after the category
+  comparison, so a decisive matchup never touches it.
+- New `npm run import:matchups:yahoo` (`scripts/import-regular-season-matchups-yahoo.ts`)
+  pulls the series from the Yahoo scoreboard — read-only, idempotent, skips playoff and
+  incomplete matchups, and records the per-matchup category split the CSV path left null.
+  **Run 2026-09-23: 184 matchups, weeks 1-23.** Verified: wk12 Hoerner beat Trout's 8-4-3.
+- The Final was not at risk either way: Eat The Rich beat Hoerner in weeks 1 and 16, and
+  also leads on season category wins (153-150) — the buggy fallback happened to agree.
+
 ## Known open items (in priority order)
 1. **Post-season cleanup: visit-sync freshness clock.** `isStale` reads
    `sync_state.last_success`, which only advances when a sync *writes* data (Aug 1 P2-7),
